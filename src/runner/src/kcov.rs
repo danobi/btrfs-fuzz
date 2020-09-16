@@ -74,7 +74,11 @@ impl Kcov {
             bail!("Failed to mmap shared kcov buffer");
         }
 
-        Ok(Self { fd, ptr, _file: file })
+        Ok(Self {
+            fd,
+            ptr,
+            _file: file,
+        })
     }
 
     pub fn enable(&mut self) -> Result<()> {
@@ -127,6 +131,5 @@ impl Drop for Kcov {
         if unsafe { libc::close(self.fd) } != 0 {
             panic!("Failed to close kcov fd");
         }
-
     }
 }

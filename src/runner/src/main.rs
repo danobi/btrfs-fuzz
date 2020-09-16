@@ -20,9 +20,7 @@ fn main() -> Result<()> {
         .iter()
         .skip(1) // control index
         .take(size)
-        .for_each(|v| {
-            println!("0x{:X}", v.load(Ordering::Relaxed))
-        });
+        .for_each(|v| println!("0x{:X}", v.load(Ordering::Relaxed)));
 
     Ok(())
 }
