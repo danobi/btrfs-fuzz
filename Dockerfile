@@ -36,9 +36,15 @@ FROM aflplusplus/aflplusplus:latest
 
 ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update
-RUN apt-get install -y qemu-system-x86
+RUN apt-get install -y \
+  btrfs-progs \
+  kmod \
+  strace \
+  qemu-system-x86
 
 WORKDIR /
 
 COPY --from=kernel /linux/arch/x86/boot/bzImage /bzImage
 RUN git clone https://github.com/amluto/virtme.git
+
+ENTRYPOINT ["/virtme/virtme-run", "--kimg", "/bzImage", "--rw", "--pwd", "--memory", "512M"]
