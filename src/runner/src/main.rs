@@ -1,19 +1,32 @@
+use std::path::PathBuf;
 use std::sync::atomic::Ordering;
-use std::thread;
-use std::time;
+
+use anyhow::Result;
+use structopt::StructOpt;
 
 mod constants;
 mod kcov;
-
-use anyhow::Result;
+mod mount;
 
 use kcov::Kcov;
+use mount::Mount;
+
+#[derive(Debug, StructOpt)]
+#[structopt(name = "runner", about = "Run btrfs-fuzz test cases")]
+struct Opt {
+    /// Path to filesystem image under test
+    #[structopt(parse(from_os_str))]
+    image: PathBuf,
+}
 
 fn main() -> Result<()> {
+    let opts = Opt::from_args();
+
     let mut kcov = Kcov::new()?;
     kcov.enable()?;
 
-    thread::sleep(time::Duration::from_secs(100));
+    // The `_` is an immediate drop after creation
+    let _ = Mount::new(&opts.image, "/mnt/btrfs")?;
 
     let size = kcov.disable()?;
     kcov.coverage()
