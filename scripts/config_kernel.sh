@@ -105,6 +105,9 @@ find fs/btrfs -name Makefile \
 # Build btrfs module in-kernel
 ./scripts/config -e BTRFS_FS
 
+# Build loop module in-kernel
+./scripts/config -e BLK_DEV_LOOP
+
 # Enable btrfs checks
 ./scripts/config \
     -e BTRFS_FS_CHECK_INTEGRITY \
