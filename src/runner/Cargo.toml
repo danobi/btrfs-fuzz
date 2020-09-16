@@ -5,3 +5,6 @@ authors = ["Daniel Xu <dxu@dxuuu.xyz>"]
 edition = "2018"
 
 [dependencies]
+anyhow = "1.0"
+libc = "0.2"
+nix = "0.18"
