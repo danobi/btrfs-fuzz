@@ -30,8 +30,18 @@ RUN ./config_kernel.sh
 
 RUN make bzImage -j$(nproc)
 
-# Second build stage only keeps bzImage and drops everything else
+# Second build stage builds statically linked btrfs-fuzz software components
+FROM rust:alpine as btrfsfuzz
+WORKDIR /
+RUN mkdir btrfs-fuzz
+WORKDIR btrfs-fuzz
+COPY Cargo.toml .
+RUN mkdir src
+COPY src src
+RUN cargo build --release
 
+# Final stage build copies over binaries from build stages and only installs
+# runtime components.
 FROM aflplusplus/aflplusplus:latest
 
 ARG DEBIAN_FRONTEND=noninteractive
@@ -43,8 +53,12 @@ RUN apt-get install -y \
   qemu-system-x86
 
 WORKDIR /
+RUN mkdir btrfs-fuzz
+WORKDIR btrfs-fuzz
 
-COPY --from=kernel /linux/arch/x86/boot/bzImage /bzImage
 RUN git clone https://github.com/amluto/virtme.git
 
-ENTRYPOINT ["/virtme/virtme-run", "--kimg", "/bzImage", "--rw", "--pwd", "--memory", "512M"]
+COPY --from=kernel /linux/arch/x86/boot/bzImage .
+COPY --from=btrfsfuzz /btrfs-fuzz/target/release/runner .
+
+ENTRYPOINT ["virtme/virtme-run", "--kimg", "bzImage", "--rw", "--pwd", "--memory", "512M"]
