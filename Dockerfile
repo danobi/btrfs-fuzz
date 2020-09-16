@@ -32,12 +32,17 @@ RUN make bzImage -j$(nproc)
 
 # Second build stage builds statically linked btrfs-fuzz software components
 FROM rust:alpine as btrfsfuzz
+
+RUN apk update
+RUN apk add musl-dev
+
 WORKDIR /
 RUN mkdir btrfs-fuzz
 WORKDIR btrfs-fuzz
 COPY Cargo.toml .
 RUN mkdir src
 COPY src src
+RUN cargo update
 RUN cargo build --release
 
 # Final stage build copies over binaries from build stages and only installs
