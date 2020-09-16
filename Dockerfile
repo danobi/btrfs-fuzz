@@ -39,7 +39,7 @@ RUN apk add musl-dev
 WORKDIR /
 RUN mkdir btrfs-fuzz
 WORKDIR btrfs-fuzz
-COPY Cargo.toml .
+COPY Cargo.toml Cargo.lock .
 RUN mkdir src
 COPY src src
 RUN cargo update
