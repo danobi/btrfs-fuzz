@@ -1,0 +1,22 @@
+// mscgen -T png architecture.mscgen
+
+msc {
+  a [label="harness"],b [label="AFL++"], c [label="runner"];
+
+  a=>b [label="start QEMU"];
+  b=>c [label="start forkserver"];
+  b=>b [label="generate fuzzed image"];
+  b=>c [label="send image"];
+  c=>c [label="decompress image"];
+  c=>c [label="fixup image"];
+  c=>c [label="mount/umount"];
+  c=>b [label="report results"];
+  b=>b [label="generate fuzzed image"];
+  b=>c [label="send image"];
+  c=>c [label="decompress image"];
+  c=>c [label="fixup image"];
+  c=>c [label="mount/umount"];
+  ---  [label="kernel panic"];
+  a=>a [label="parse crash log"];
+  a=>b [label="start QEMU"];
+}
