@@ -116,11 +116,8 @@ find fs/btrfs -name Makefile \
     -e BTRFS_ASSERT \
     -e BTRFS_FS_REF_VERIFY
 
-# Disable BTF and DWARF to reduce build size
-./scripts/config \
-    -d DEBUG_INFO_BTF \
-    -d DEBUG_INFO_DWARF4 \
-    -d DEBUG_INFO
+# Disable BTF to reduce build dependencies
+./scripts/config -d DEBUG_INFO_BTF
 
 # Setting previous configs may result in more sub options being available,
 # so set all the new available ones to default as well.

@@ -64,6 +64,7 @@ WORKDIR btrfs-fuzz
 RUN git clone https://github.com/amluto/virtme.git
 
 COPY --from=kernel /linux/arch/x86/boot/bzImage .
+COPY --from=kernel /linux/vmlinux .
 COPY --from=btrfsfuzz /btrfs-fuzz/target/release/runner .
 
 ENTRYPOINT ["virtme/virtme-run", "--kimg", "bzImage", "--rw", "--pwd", "--memory", "1024M"]
