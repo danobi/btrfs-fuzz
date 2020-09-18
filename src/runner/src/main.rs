@@ -5,6 +5,7 @@ use anyhow::Result;
 use structopt::StructOpt;
 
 mod constants;
+mod forkserver;
 mod kcov;
 mod mount;
 
