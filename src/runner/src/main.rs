@@ -1,6 +1,8 @@
 use std::cmp;
+use std::fs::OpenOptions;
 use std::hash::Hasher;
-use std::path::PathBuf;
+use std::io::{self, Read, Write};
+use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 
 use anyhow::{bail, Result};
@@ -20,6 +22,8 @@ mod mount;
 use forkserver::{Forkserver, RunStatus};
 use kcov::Kcov;
 use mount::Mount;
+
+const FUZZED_IMAGE_PATH: &str = "/tmp/btrfsimage";
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "runner", about = "Run btrfs-fuzz test cases")]
@@ -75,13 +79,34 @@ fn kmsg_contains_bug(fd: i32) -> Result<bool> {
     Ok(false)
 }
 
+/// Get next testcase from AFL and write it into file `into`
+fn get_next_testcase<P: AsRef<Path>>(into: P) -> Result<()> {
+    let mut buffer = Vec::new();
+
+    // AFL feeds inputs via stdin
+    let stdin = io::stdin();
+    let mut handle = stdin.lock();
+    handle.read_to_end(&mut buffer)?;
+
+    // Write out FS image
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(into)?;
+
+    file.write_all(&buffer)?;
+
+    Ok(())
+}
+
 /// Test code
 ///
 /// Note how this doesn't return errors. That's because our definition of error is a kernel BUG()
 /// or panic. We expect that some operations here fail (such as mount(2))
-fn work(image: &PathBuf) {
+fn work<P: AsRef<Path>>(image: P) {
     // The `_` is an immediate drop after creation
-    let _ = Mount::new(image, "/mnt/btrfs");
+    let _ = Mount::new(image.as_ref(), "/mnt/btrfs");
 }
 
 fn main() -> Result<()> {
@@ -100,9 +125,12 @@ fn main() -> Result<()> {
         // Tell AFL we want to start a new run
         forkserver.new_run()?;
 
+        // Now pull the next testcase from AFL and write it to tmpfs
+        get_next_testcase(FUZZED_IMAGE_PATH)?;
+
         // Start coverage collection, do work, then disable collection
         kcov.enable()?;
-        work(&opts.image);
+        work(FUZZED_IMAGE_PATH);
         let size = kcov.disable()?;
 
         // Report edge transitions to AFL

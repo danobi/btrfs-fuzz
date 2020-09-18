@@ -1,5 +1,5 @@
 use std::fs;
-use std::path::PathBuf;
+use std::path::Path;
 
 use anyhow::{anyhow, Context, Result};
 use loopdev::{LoopControl, LoopDevice};
@@ -11,7 +11,7 @@ pub struct Mount {
 }
 
 impl Mount {
-    pub fn new(src: &PathBuf, dest: &'static str) -> Result<Self> {
+    pub fn new<P: AsRef<Path>>(src: P, dest: &'static str) -> Result<Self> {
         // Will fail if directory already exists
         let _ = fs::create_dir(dest);
 
