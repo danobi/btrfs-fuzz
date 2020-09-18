@@ -5,9 +5,11 @@ use anyhow::Result;
 use structopt::StructOpt;
 
 mod constants;
+mod forkserver;
 mod kcov;
 mod mount;
 
+use forkserver::Forkserver;
 use kcov::Kcov;
 use mount::Mount;
 
@@ -21,6 +23,8 @@ struct Opt {
 
 fn main() -> Result<()> {
     let opts = Opt::from_args();
+
+    let mut _forkserver = Forkserver::new()?;
 
     let mut kcov = Kcov::new()?;
     kcov.enable()?;
