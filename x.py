@@ -22,10 +22,7 @@ def cmd_build(args):
 
 def cmd_run(args):
     print("Starting btrfs-fuzz")
-    print("TODO")
 
-
-def cmd_shell(args):
     c = ['podman run']
     c.append('-it')
     c.append('--privileged')
@@ -37,6 +34,29 @@ def cmd_shell(args):
         c.append('localhost/btrfs-fuzz')
     else:
         c.append('dxuu/btrfs-fuzz')
+
+    sh(' '.join(c))
+
+
+def cmd_shell(args):
+    c = ['podman run']
+    c.append('-it')
+    c.append('--privileged')
+    c.append(f"-v {args.state_dir}:/state")
+
+    if args.local:
+        c.append('localhost/btrfs-fuzz')
+    else:
+        c.append('dxuu/btrfs-fuzz')
+
+    c.append('--script-sh')
+    c.append('"')
+    c.append('echo core > /proc/sys/kernel/core_pattern')
+    c.append('/usr/local/bin/afl-fuzz')
+    c.append('-i /state/input')
+    c.append('-o /state/output')
+    c.append('-- /btrfs-fuzz/runner')
+    c.append('"')
 
     sh(' '.join(c))
 
@@ -57,6 +77,12 @@ def main():
     build.set_defaults(func=cmd_build)
 
     run = subparsers.add_parser('run', help='run fuzzer')
+    run.add_argument(
+            'state_dir',
+            type=str,
+            help='Shared state directory between host and VM, mounted in VM at '
+            '/state. The directory must contain `input` and `output` '
+            'subdirectories, with `input` containing initial test cases.')
     run.set_defaults(func=cmd_run)
 
     shell = subparsers.add_parser('shell', help='start shell in VM')
