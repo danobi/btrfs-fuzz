@@ -1,3 +1,4 @@
+use std::cmp;
 use std::hash::Hasher;
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
@@ -49,23 +50,25 @@ fn kmsg_contains_bug(fd: i32) -> Result<bool> {
 
     loop {
         let n = unsafe { libc::read(fd, (&mut buf).as_mut_ptr() as *mut c_void, buf.len()) };
-        if n == 0 {
-            break;
-        } else if n < 0 {
-            let errno = Errno::from_i32(errno());
-            if errno == Errno::EAGAIN {
-                // No more entries in kmsg
-                break;
-            } else {
-                bail!("Failed to read from /dev/kmsg");
+        match n.cmp(&0) {
+            cmp::Ordering::Equal => break,
+            cmp::Ordering::Less => {
+                let errno = Errno::from_i32(errno());
+                if errno == Errno::EAGAIN {
+                    // No more entries in kmsg
+                    break;
+                } else {
+                    bail!("Failed to read from /dev/kmsg");
+                }
             }
-        }
+            cmp::Ordering::Greater => {
+                buf[n as usize] = 0;
 
-        buf[n as usize] = 0;
-
-        let line = String::from_utf8_lossy(&buf);
-        if line.contains("Call Trace") || line.contains("RIP:") || line.contains("Code:") {
-            return Ok(true);
+                let line = String::from_utf8_lossy(&buf);
+                if line.contains("Call Trace") || line.contains("RIP:") || line.contains("Code:") {
+                    return Ok(true);
+                }
+            }
         }
     }
 

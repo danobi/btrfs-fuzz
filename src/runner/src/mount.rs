@@ -16,13 +16,13 @@ impl Mount {
         let _ = fs::create_dir(dest);
 
         let control =
-            LoopControl::open().with_context(|| format!("Failed to open loop control"))?;
+            LoopControl::open().with_context(|| "Failed to open loop control".to_string())?;
         let device = control
             .next_free()
-            .with_context(|| format!("Failed to get next free loop dev"))?;
+            .with_context(|| "Failed to get next free loop dev".to_string())?;
         device
             .attach_file(src)
-            .with_context(|| format!("Failed to attach file to loop dev"))?;
+            .with_context(|| "Failed to attach file to loop dev".to_string())?;
 
         let mount = sys_mount::Mount::new(
             device
@@ -33,7 +33,7 @@ impl Mount {
             MountFlags::empty(),
             None,
         )
-        .with_context(|| format!("Failed to mount btrfs image"))?;
+        .with_context(|| "Failed to mount btrfs image".to_string())?;
 
         Ok(Self {
             loopdev: device,

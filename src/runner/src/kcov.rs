@@ -48,12 +48,12 @@ impl Kcov {
             .read(true)
             .write(true)
             .open("/sys/kernel/debug/kcov")
-            .with_context(|| format!("Failed to open kcov control file"))?;
+            .with_context(|| "Failed to open kcov control file".to_string())?;
         let fd = file.as_raw_fd();
 
         if unsafe {
             kcov_init_trace(fd, COVER_SIZE as *mut u64)
-                .with_context(|| format!("Failed to KCOV_INIT_TRACE"))?
+                .with_context(|| "Failed to KCOV_INIT_TRACE".to_string())?
         } != 0
         {
             bail!("Failed to KCOV_INIT_TRACE");
@@ -87,7 +87,7 @@ impl Kcov {
 
         if unsafe {
             kcov_enable(self.fd, KCOV_TRACE_PC.try_into().unwrap())
-                .with_context(|| format!("Failed to enable kcov PC tracing"))?
+                .with_context(|| "Failed to enable kcov PC tracing".to_string())?
         } != 0
         {
             bail!("Failed to enable kcov PC tracing");
@@ -104,13 +104,13 @@ impl Kcov {
 
         if unsafe {
             kcov_disable(self.fd, 0 as i32)
-                .with_context(|| format!("Failed to disable kcov tracing"))?
+                .with_context(|| "Failed to disable kcov tracing".to_string())?
         } != 0
         {
             bail!("Failed to disable kcov tracing");
         }
 
-        return Ok(len);
+        Ok(len)
     }
 
     pub fn coverage(&self) -> &[AtomicUsize] {
