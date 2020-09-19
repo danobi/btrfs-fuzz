@@ -53,6 +53,7 @@ def cmd_shell(args):
     c.append("--script-sh")
     c.append('"')
     c.append("echo core > /proc/sys/kernel/core_pattern")
+    c.append("&&")
     c.append("/usr/local/bin/afl-fuzz")
     c.append("-i /state/input")
     c.append("-o /state/output")
