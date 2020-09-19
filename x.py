@@ -38,6 +38,7 @@ def cmd_run(args):
     c.append('"')
     c.append("echo core > /proc/sys/kernel/core_pattern")
     c.append("&&")
+    c.append("AFL_SKIP_BIN_CHECK=1")
     c.append("/usr/local/bin/afl-fuzz")
     c.append("-i /state/input")
     c.append("-o /state/output")
