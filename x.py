@@ -27,22 +27,6 @@ def cmd_run(args):
     c = ["podman run"]
     c.append("-it")
     c.append("--privileged")
-
-    if args.state_dir:
-        c.append(f"-v {args.state_dir}:/state")
-
-    if args.local:
-        c.append("localhost/btrfs-fuzz")
-    else:
-        c.append("dxuu/btrfs-fuzz")
-
-    sh(" ".join(c))
-
-
-def cmd_shell(args):
-    c = ["podman run"]
-    c.append("-it")
-    c.append("--privileged")
     c.append(f"-v {args.state_dir}:/state")
 
     if args.local:
@@ -59,6 +43,22 @@ def cmd_shell(args):
     c.append("-o /state/output")
     c.append("-- /btrfs-fuzz/runner")
     c.append('"')
+
+    sh(" ".join(c))
+
+
+def cmd_shell(args):
+    c = ["podman run"]
+    c.append("-it")
+    c.append("--privileged")
+
+    if args.state_dir:
+        c.append(f"-v {args.state_dir}:/state")
+
+    if args.local:
+        c.append("localhost/btrfs-fuzz")
+    else:
+        c.append("dxuu/btrfs-fuzz")
 
     sh(" ".join(c))
 
