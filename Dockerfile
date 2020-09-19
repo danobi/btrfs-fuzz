@@ -1,7 +1,6 @@
 FROM alpine:edge as kernel
 
-RUN apk update
-RUN apk add \
+RUN apk update && apk add \
   bash \
   bison \
   build-base \
@@ -33,8 +32,7 @@ RUN make bzImage -j$(nproc)
 # Second build stage builds statically linked btrfs-fuzz software components
 FROM rust:alpine as btrfsfuzz
 
-RUN apk update
-RUN apk add musl-dev
+RUN apk update && apk add musl-dev
 
 WORKDIR /
 RUN mkdir btrfs-fuzz
@@ -50,8 +48,7 @@ RUN cargo build --release
 FROM aflplusplus/aflplusplus:latest
 
 ARG DEBIAN_FRONTEND=noninteractive
-RUN apt-get update
-RUN apt-get install -y \
+RUN apt-get update && apt-get install -y \
   btrfs-progs \
   busybox \
   kmod \
