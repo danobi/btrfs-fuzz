@@ -52,6 +52,7 @@ RUN apt-get update && apt-get install -y \
   btrfs-progs \
   busybox \
   kmod \
+  linux-tools-generic \
   strace \
   qemu-system-x86
 
