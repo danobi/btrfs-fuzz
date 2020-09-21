@@ -1,3 +1,4 @@
+use std::convert::TryInto;
 use std::env;
 use std::ptr;
 use std::slice;
@@ -54,7 +55,7 @@ impl Forkserver {
                 println!("Running outside of AFL");
                 disabled = true;
 
-                let ptr = unsafe { calloc(AFL_MAP_SIZE, 1) };
+                let ptr = unsafe { calloc(AFL_MAP_SIZE.try_into()?, 1) };
                 if ptr.is_null() {
                     bail!("Failed to calloc() edge buffer");
                 }
@@ -65,10 +66,12 @@ impl Forkserver {
 
         // Phone home and tell parent we're OK
         if !disabled {
-            // Exactly 4 bytes
-            let zero = 0u32.to_ne_bytes();
+            // Must be exactly 4 bytes
+            let val: u32 = AFL_FS_OPT_ENABLED
+                | AFL_FS_OPT_MAPSIZE
+                | Self::forkserver_opt_set_mapsize(AFL_MAP_SIZE);
 
-            if write(AFL_FORKSERVER_WRITE_FD, &zero)? != 4 {
+            if write(AFL_FORKSERVER_WRITE_FD, &val.to_ne_bytes())? != 4 {
                 bail!("Forkserver failed to phone home");
             }
         }
@@ -79,6 +82,11 @@ impl Forkserver {
         })
     }
 
+    /// Encode map size to a value we pass through the our phone home
+    fn forkserver_opt_set_mapsize(size: u32) -> u32 {
+        (size - 1) << 1
+    }
+
     /// Get edge transition shared memory buffer
     pub fn shmem(&mut self) -> &mut [u8] {
         let ptr = match self.shared_mem {
@@ -86,7 +94,7 @@ impl Forkserver {
             SharedMemPtr::Anon(p) => p,
         };
 
-        unsafe { slice::from_raw_parts_mut(ptr as *mut u8, AFL_MAP_SIZE) }
+        unsafe { slice::from_raw_parts_mut(ptr as *mut u8, AFL_MAP_SIZE.try_into().unwrap()) }
     }
 
     /// Initiate a new test run with AFL
