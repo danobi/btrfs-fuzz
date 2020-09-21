@@ -101,7 +101,7 @@ impl Forkserver {
     pub fn new_run(&mut self) -> Result<()> {
         if !self.disabled {
             // Exactly 4 bytes
-            let mut was_killed: Vec<u8> = vec![0, 4];
+            let mut was_killed: Vec<u8> = vec![0; 4];
 
             // We don't really care if AFL "killed" our child b/c we gave AFL a dummy PID anyways,
             // so ignore `was_killed` result
