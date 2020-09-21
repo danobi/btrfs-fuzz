@@ -1,12 +1,11 @@
 use std::cmp;
-use std::fs::OpenOptions;
 use std::hash::Hasher;
 use std::io::{self, Read, Write};
 use std::path::Path;
 use std::process::Command;
 use std::sync::atomic::Ordering;
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{bail, Context, Result};
 use libc::c_void;
 use nix::errno::{errno, Errno};
 use nix::fcntl::{open, OFlag};
@@ -102,29 +101,24 @@ fn get_next_testcase<P: AsRef<Path>>(into: P) -> Result<()> {
     let path = tempfile.into_temp_path();
     let output = Command::new("/bin/btrfs-image")
         .arg("-r")
-        .arg(
-            path.to_str()
-                .ok_or_else(|| anyhow!("Failed to get path to tempfile"))?,
-        )
-        .arg("-") // to stdout
+        .arg(path)
+        .arg(into.as_ref())
         .output()?;
 
     if !output.status.success() {
         if let Some(c) = output.status.code() {
-            bail!("btrfs-image failed with exit code={}", c);
+            bail!(
+                "btrfs-image failed with exit code={}. Error={}",
+                c,
+                &String::from_utf8_lossy(&output.stderr)
+            );
         } else {
-            bail!("btrfs-image was terminated by a signal");
+            bail!(
+                "btrfs-image was terminated by a signal. Error={}",
+                &String::from_utf8_lossy(&output.stderr)
+            );
         }
     }
-
-    // Write out FS image
-    let mut file = OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .open(into)?;
-
-    file.write_all(&output.stdout)?;
 
     Ok(())
 }
