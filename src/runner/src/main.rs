@@ -2,7 +2,7 @@ use std::cmp;
 use std::fs::OpenOptions;
 use std::hash::Hasher;
 use std::io::{self, Read, Write};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::atomic::Ordering;
 
 use anyhow::{bail, Result};
@@ -28,9 +28,9 @@ const FUZZED_IMAGE_PATH: &str = "/tmp/btrfsimage";
 #[derive(Debug, StructOpt)]
 #[structopt(name = "runner", about = "Run btrfs-fuzz test cases")]
 struct Opt {
-    /// Path to filesystem image under test
-    #[structopt(parse(from_os_str))]
-    image: PathBuf,
+    /// Turn on debug output
+    #[structopt(short, long)]
+    debug: bool,
 }
 
 /// Opens kmsg fd and seeks to end.
@@ -110,7 +110,7 @@ fn work<P: AsRef<Path>>(image: P) {
 }
 
 fn main() -> Result<()> {
-    let opts = Opt::from_args();
+    let _opts = Opt::from_args();
 
     // Initialize forkserver and handshake with AFL
     let mut forkserver = Forkserver::new()?;
