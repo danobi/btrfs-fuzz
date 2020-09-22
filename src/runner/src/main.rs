@@ -73,6 +73,7 @@ fn kmsg_contains_bug(fd: i32) -> Result<bool> {
                     || line.contains("RIP:")
                     || line.contains("Code:")
                     || line.contains("BUG")
+                    || line.contains("WARNING")
                 {
                     return Ok(true);
                 }
