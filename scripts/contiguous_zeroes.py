@@ -1,21 +1,14 @@
 #!/bin/python3
 #
-# Calculates number of contiguous zeroes (>2 implies contiguous) in a binary
-# file. This script is useful to determine if 0-encoding a filesystem image
-# is useful.
+# Calculates number of contiguous zeroes (controlled by minimum WIDTH zeroes)
+# in a binary file. This script is useful to determine if 0-encoding a
+# filesystem image is useful.
 
 import sys
 import enum
 
 
-class State(enum.Enum):
-    ZERO = 0
-    ONE = 1
-    TWO = 2
-    TWO_PLUS = 3
-
-
-def bytes_from_file(filename, chunksize=8192):
+def bytes_from_file(filename, chunksize=(16 << 10)):
     with open(filename, "rb") as f:
         while True:
             chunk = f.read(chunksize)
@@ -27,38 +20,45 @@ def bytes_from_file(filename, chunksize=8192):
 
 
 def main():
-    if len(sys.argv) != 2:
-        print("Usage: ./contiguous_zeroes.py FILE")
+    if len(sys.argv) < 2:
+        print("Usage: ./contiguous_zeroes.py FILE [WIDTH]=16")
         sys.exit(1)
 
+    width = 16
+    if len(sys.argv) == 3:
+        width = int(sys.argv[2])
+
     count = 0
-    state = State.ZERO
+    chunks = 0
+    total_bytes = 0
+    state = 0
 
     for b in bytes_from_file(sys.argv[1]):
-        z = b == 0
+        total_bytes += 1
 
-        if state == State.ZERO:
-            if z:
-                state = State.ONE
-        elif state == State.ONE:
-            if z:
-                state = State.TWO
-            else:
-                state = State.ZERO
-        elif state == State.TWO:
-            if z:
-                # Add the previous two + current zero
-                count += 3
-                state = State.TWO_PLUS
-            else:
-                state = State.ZERO
-        else:
-            if z:
+        if b == 0:
+            state += 1
+            if state < width:
+                pass
+            elif state == width:
+                count += width
+                chunks += 1
+            else:  # state > width
                 count += 1
-            else:
-                state = State.ZERO
+        else:
+            state = 0
 
-    print(count)
+    print(f"{count:<12}eligible zeros")
+    print(f"{chunks:<12}chunks of zeroes")
+    print(f"{total_bytes:<12}total bytes")
+    print("------------------------------")
+
+    metadata_bytes = 4 * chunks
+    compressed_size = total_bytes - count + metadata_bytes
+    compression_ratio = total_bytes / compressed_size
+
+    print(f"{compressed_size >> 10:.3f}KB compressed size")
+    print(f"{compression_ratio:.3f} compression ratio")
 
 
 if __name__ == "__main__":
