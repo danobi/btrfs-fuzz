@@ -21,7 +21,7 @@ mod mount;
 
 use forkserver::{Forkserver, RunStatus};
 use kcov::Kcov;
-use mount::Mount;
+use mount::Mounter;
 
 const FUZZED_IMAGE_PATH: &str = "/tmp/btrfsimage";
 
@@ -109,9 +109,9 @@ fn get_next_testcase<P: AsRef<Path>>(into: P) -> Result<()> {
 ///
 /// Note how this doesn't return errors. That's because our definition of error is a kernel BUG()
 /// or panic. We expect that some operations here fail (such as mount(2))
-fn work<P: AsRef<Path>>(image: P) {
+fn work<P: AsRef<Path>>(mounter: &mut Mounter, image: P) {
     // The `_` is an immediate drop after creation
-    let _ = Mount::new(image.as_ref(), "/mnt/btrfs");
+    let _ = mounter.mount(image.as_ref(), "/mnt/btrfs");
 }
 
 fn main() -> Result<()> {
@@ -126,6 +126,9 @@ fn main() -> Result<()> {
     // Open /dev/kmsg
     let kmsg = open_kmsg()?;
 
+    // Create a persistent loopdev to use
+    let mut mounter = Mounter::new()?;
+
     loop {
         // Tell AFL we want to start a new run
         forkserver.new_run()?;
@@ -135,7 +138,7 @@ fn main() -> Result<()> {
 
         // Start coverage collection, do work, then disable collection
         kcov.enable()?;
-        work(FUZZED_IMAGE_PATH);
+        work(&mut mounter, FUZZED_IMAGE_PATH);
         let size = kcov.disable()?;
 
         // Report edge transitions to AFL
