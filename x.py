@@ -22,6 +22,8 @@ def cmd_build(args):
 
 
 def cmd_run(args):
+    import pexpect
+
     print("Starting btrfs-fuzz")
 
     c = ["podman run"]
@@ -34,19 +36,23 @@ def cmd_run(args):
     else:
         c.append("dxuu/btrfs-fuzz")
 
-    c.append("--script-sh")
-    c.append('"')
-    c.append("echo core > /proc/sys/kernel/core_pattern")
-    c.append("&&")
+    p = pexpect.spawn(" ".join(c))
+    p.expect("root@.*#")
+    p.sendline('/bin/bash -c "echo core > /proc/sys/kernel/core_pattern"')
+
+    c = []
     c.append("AFL_SKIP_BIN_CHECK=1")
     c.append("AFL_DEBUG_CHILD_OUTPUT=1")
     c.append("/usr/local/bin/afl-fuzz")
     c.append("-i /state/input")
     c.append("-o /state/output")
     c.append("-- /btrfs-fuzz/runner")
-    c.append('"')
 
-    sh(" ".join(c))
+    p.expect("root@.*#")
+    p.sendline(" ".join(c))
+
+    # Give control back to terminal
+    p.interact()
 
 
 def cmd_shell(args):
