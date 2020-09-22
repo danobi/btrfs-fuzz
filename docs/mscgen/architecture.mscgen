@@ -5,13 +5,13 @@ msc {
 
   a=>b [label="start QEMU"];
   b=>c [label="start forkserver"];
-  b=>b [label="generate fuzzed image"];
+  b=>b [label="mutate image"];
   b=>c [label="send image"];
   c=>c [label="decompress image"];
   c=>c [label="fixup image"];
   c=>c [label="mount/umount"];
   c=>b [label="report results"];
-  b=>b [label="generate fuzzed image"];
+  b=>b [label="mutate image"];
   b=>c [label="send image"];
   c=>c [label="decompress image"];
   c=>c [label="fixup image"];
