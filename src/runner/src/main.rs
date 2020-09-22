@@ -3,10 +3,9 @@ use std::fs::OpenOptions;
 use std::hash::Hasher;
 use std::io::{self, Read, Write};
 use std::path::Path;
-use std::process::Command;
 use std::sync::atomic::Ordering;
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{bail, Result};
 use libc::c_void;
 use nix::errno::{errno, Errno};
 use nix::fcntl::{open, OFlag};
@@ -14,7 +13,6 @@ use nix::sys::stat::Mode;
 use nix::unistd::{lseek, Whence};
 use siphasher::sip::SipHasher;
 use structopt::StructOpt;
-use tempfile::Builder;
 
 mod constants;
 mod forkserver;
@@ -94,29 +92,6 @@ fn get_next_testcase<P: AsRef<Path>>(into: P) -> Result<()> {
     let mut handle = stdin.lock();
     handle.read_to_end(&mut buffer)?;
 
-    // Write out minimized btrfs-image to a tempfile
-    let tempfile = Builder::new().prefix("btrfs-image-min").tempfile()?;
-    tempfile.as_file().write_all(&buffer)?;
-
-    // Expand image image
-    let path = tempfile.into_temp_path();
-    let output = Command::new("/bin/btrfs-image")
-        .arg("-r")
-        .arg(
-            path.to_str()
-                .ok_or_else(|| anyhow!("Failed to get path to tempfile"))?,
-        )
-        .arg("-") // to stdout
-        .output()?;
-
-    if !output.status.success() {
-        if let Some(c) = output.status.code() {
-            bail!("btrfs-image failed with exit code={}", c);
-        } else {
-            bail!("btrfs-image was terminated by a signal");
-        }
-    }
-
     // Write out FS image
     let mut file = OpenOptions::new()
         .write(true)
@@ -124,7 +99,7 @@ fn get_next_testcase<P: AsRef<Path>>(into: P) -> Result<()> {
         .truncate(true)
         .open(into)?;
 
-    file.write_all(&output.stdout)?;
+    file.write_all(&buffer)?;
 
     Ok(())
 }
@@ -155,8 +130,7 @@ fn main() -> Result<()> {
         forkserver.new_run()?;
 
         // Now pull the next testcase from AFL and write it to tmpfs
-        get_next_testcase(FUZZED_IMAGE_PATH)
-            .with_context(|| "Failed to get next testcase".to_string())?;
+        get_next_testcase(FUZZED_IMAGE_PATH)?;
 
         // Start coverage collection, do work, then disable collection
         kcov.enable()?;
