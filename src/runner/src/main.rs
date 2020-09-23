@@ -1,6 +1,6 @@
 use std::cmp;
+use std::convert::TryInto;
 use std::fs::OpenOptions;
-use std::hash::Hasher;
 use std::io::{self, Read, Write};
 use std::path::Path;
 use std::sync::atomic::Ordering;
@@ -11,7 +11,6 @@ use nix::errno::{errno, Errno};
 use nix::fcntl::{open, OFlag};
 use nix::sys::stat::Mode;
 use nix::unistd::{lseek, Whence};
-use siphasher::sip::SipHasher;
 use structopt::StructOpt;
 
 mod constants;
@@ -144,15 +143,13 @@ fn main() -> Result<()> {
         // Report edge transitions to AFL
         let coverage = kcov.coverage();
         let shmem = forkserver.shmem();
-        let mut hasher = SipHasher::new();
-        let mut prev_loc: u64 = 0;
+        let mut prev_loc: u64 = 0xDEAD; // Our compile time "random"
         for i in 0..size {
             // First calculate which idx in shmem to write to
-            let current_loc = coverage[i + 1].load(Ordering::Relaxed);
-            hasher.write(&current_loc.to_ne_bytes());
-            let current_loc_hash: u64 = hasher.finish();
-            let mixed: u64 = (current_loc_hash & 0xFFFF) ^ prev_loc;
-            prev_loc = (current_loc_hash & 0xFFFF) >> 1;
+            let current_loc: u64 = coverage[i + 1].load(Ordering::Relaxed).try_into().unwrap();
+            // Mask with 0xFFFF for 16 bits b/c AFL_MAP_SIZE == 1 << 16
+            let mixed: u64 = (current_loc & 0xFFFF) ^ prev_loc;
+            prev_loc = (current_loc & 0xFFFF) >> 1;
 
             // Increment value in shmem
             let (val, overflow) = shmem[mixed as usize].overflowing_add(1);
