@@ -45,6 +45,16 @@ impl<'a> Btrfs<'a> {
     pub fn compress(&self) -> Result<CompressedBtrfsImage> {
         let mut compressed = CompressedBtrfsImage::default();
 
+        // Save superblock
+        compressed.metadata.push((
+            BTRFS_SUPERBLOCK_OFFSET.try_into()?,
+            size_of::<BtrfsSuperblock>().try_into()?,
+        ));
+        compressed.data.extend_from_slice(
+            &self.image
+                [BTRFS_SUPERBLOCK_OFFSET..(BTRFS_SUPERBLOCK_OFFSET + size_of::<BtrfsSuperblock>())],
+        );
+
         // Parse everything in the root tree
         self.parse_root_tree(&mut compressed)
             .with_context(|| "Failed to parse root tree".to_string())?;
