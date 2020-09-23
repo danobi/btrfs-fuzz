@@ -18,6 +18,7 @@ pub struct CompressedBtrfsImage {
     pub data: Vec<u8>,
 }
 
+/// Compress a btrfs image
 pub fn compress(img: &[u8]) -> Result<CompressedBtrfsImage> {
     let btrfs = Btrfs::new(img)?;
     btrfs.compress()

@@ -1,6 +1,10 @@
+use std::fs::OpenOptions;
+use std::io::Read;
 use std::path::PathBuf;
 
 use anyhow::Result;
+use rmp_serde::Serializer;
+use serde::Serialize;
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
@@ -28,8 +32,21 @@ enum Command {
     },
 }
 
-fn compress(_input: PathBuf, _output: PathBuf) -> Result<()> {
-    unimplemented!();
+fn compress(input: PathBuf, output: PathBuf) -> Result<()> {
+    let mut input = OpenOptions::new().read(true).open(input)?;
+
+    let mut input_image = Vec::new();
+    input.read_to_end(&mut input_image)?;
+    let compressed_image = imgcompress::compress(&input_image)?;
+
+    let output = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open(output)?;
+    compressed_image.serialize(&mut Serializer::new(output))?;
+
+    Ok(())
 }
 
 fn decompress(_input: PathBuf, _output: PathBuf) -> Result<()> {
