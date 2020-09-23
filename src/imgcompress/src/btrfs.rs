@@ -1,6 +1,5 @@
 use std::convert::TryInto;
 use std::mem::size_of;
-use std::mem::transmute;
 
 use anyhow::{anyhow, bail, Context, Result};
 
@@ -142,8 +141,7 @@ fn parse_superblock(img: &[u8]) -> Result<&BtrfsSuperblock> {
         bail!("Image to small to contain superblock");
     }
 
-    let superblock_ptr =
-        unsafe { transmute::<_, *const BtrfsSuperblock>(img[BTRFS_SUPERBLOCK_OFFSET..].as_ptr()) };
+    let superblock_ptr = img[BTRFS_SUPERBLOCK_OFFSET..].as_ptr() as *const BtrfsSuperblock;
     let superblock = unsafe { &*superblock_ptr };
 
     if superblock.magic != BTRFS_SUPERBLOCK_MAGIC {
@@ -234,7 +232,7 @@ fn read_root_node<'a>(img: &'a [u8], logical: u64, cache: &ChunkTreeCache) -> Re
         .offset(logical)
         .ok_or_else(|| anyhow!("Root node logical addr not mapped"))?
         .try_into()?;
-    let end: usize = (physical + size).try_into()?;
+    let end = physical + size;
 
     Ok(&img[physical..end])
 }
@@ -281,7 +279,7 @@ fn read_chunk_tree(
                 .offset(ptr.blockptr)
                 .ok_or_else(|| anyhow!("Chunk tree node not mapped"))?
                 .try_into()?;
-            let end: usize = (physical + superblock.node_size as usize).try_into()?;
+            let end: usize = physical + superblock.node_size as usize;
 
             read_chunk_tree(img, &img[physical..end], chunk_tree_cache, superblock)?;
         }
