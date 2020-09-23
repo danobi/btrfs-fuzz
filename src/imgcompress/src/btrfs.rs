@@ -61,7 +61,9 @@ impl<'a> Btrfs<'a> {
 
         // The log tree seems to be maintained separately from the root tree, so parse everything
         // in there separately
-        self.parse_tree(self.superblock.log_root, &mut compressed)?;
+        if self.superblock.log_root != 0 {
+            self.parse_tree(self.superblock.log_root, &mut compressed)?;
+        }
 
         Ok(compressed)
     }
@@ -112,7 +114,7 @@ impl<'a> Btrfs<'a> {
         let physical = self
             .chunk_tree_cache
             .offset(logical)
-            .ok_or_else(|| anyhow!("Node logical addr not mapped"))?;
+            .ok_or_else(|| anyhow!("Node logical addr={} not mapped", logical))?;
         let node = read_root_node(self.image, logical, &self.chunk_tree_cache)
             .with_context(|| "Failed to read node".to_string())?;
 
