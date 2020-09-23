@@ -1,0 +1,12 @@
+[package]
+name = "mutator"
+version = "0.1.0"
+authors = ["Daniel Xu <dxu@dxuuu.xyz>"]
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+fuzzmutator = "0.2"
+libc = "0.2"
