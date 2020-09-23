@@ -43,6 +43,8 @@ def cmd_run(args):
     c = []
     c.append("AFL_SKIP_BIN_CHECK=1")
     c.append("AFL_DEBUG_CHILD_OUTPUT=1")
+    c.append("AFL_CUSTOM_MUTATOR_LIBRARY=/btrfs-fuzz/libmutator.so")
+    c.append("AFL_CUSTOM_MUTATOR_ONLY=1")
     c.append("/usr/local/bin/afl-fuzz")
     c.append("-i /state/input")
     c.append("-o /state/output")
