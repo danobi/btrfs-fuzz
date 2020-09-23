@@ -73,6 +73,7 @@ pub extern "C" fn afl_custom_fuzz(
     _add_buf_size: libc::size_t,
     max_size: libc::size_t,
 ) -> libc::size_t {
+    println!("IN AFL_CUSTOM_FUZZ");
     let mutator = unsafe { &mut *(data as *mut Mutator) };
 
     // Deserialize input

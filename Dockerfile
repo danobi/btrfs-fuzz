@@ -42,9 +42,6 @@ RUN mkdir src
 COPY src src
 RUN cargo update
 RUN cargo build --release -p runner
-# Need the strange -C flag to build a .so on musl target
-# See https://github.com/rust-lang/rust/pull/40113
-RUN RUSTFLAGS="-C target-feature=-crt-static" cargo build --release -p mutator
 
 # Third stage builds dynamically linked btrfs-fuzz components
 FROM rust:latest as btrfsfuzz-dy
