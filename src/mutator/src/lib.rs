@@ -8,7 +8,7 @@
 ///         There may be multiple instances of this mutator in one afl-fuzz run!
 ///         Return NULL on error.
 #[no_mangle]
-pub extern "C" fn afl_custom_init(_afl: *mut libc::c_void, _seed: u32) -> *mut libc::c_void {
+pub extern "C" fn afl_custom_init(_afl: *mut libc::c_void, _seed: libc::c_uint) -> *mut libc::c_void {
     unimplemented!();
 }
 
