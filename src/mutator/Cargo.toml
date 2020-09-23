@@ -10,3 +10,4 @@ crate-type = ["cdylib"]
 [dependencies]
 fuzzmutator = "0.2"
 libc = "0.2"
+rmp-serde = "0.14"
