@@ -1,9 +1,9 @@
 use std::fs::OpenOptions;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::path::PathBuf;
 
 use anyhow::Result;
-use rmp_serde::Serializer;
+use rmp_serde::{decode::from_read_ref, Serializer};
 use serde::Serialize;
 use structopt::StructOpt;
 
@@ -49,8 +49,22 @@ fn compress(input: PathBuf, output: PathBuf) -> Result<()> {
     Ok(())
 }
 
-fn decompress(_input: PathBuf, _output: PathBuf) -> Result<()> {
-    unimplemented!();
+fn decompress(input: PathBuf, output: PathBuf) -> Result<()> {
+    let mut input = OpenOptions::new().read(true).open(input)?;
+
+    let mut serialized_input = Vec::new();
+    input.read_to_end(&mut serialized_input)?;
+    let deserialized_input: imgcompress::CompressedBtrfsImage = from_read_ref(&serialized_input)?;
+    let decompressed_image = imgcompress::decompress(&deserialized_input)?;
+
+    let mut output = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open(output)?;
+    output.write_all(&decompressed_image)?;
+
+    Ok(())
 }
 
 fn main() -> Result<()> {
