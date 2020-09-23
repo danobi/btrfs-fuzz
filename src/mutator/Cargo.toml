@@ -8,6 +8,9 @@ edition = "2018"
 crate-type = ["cdylib"]
 
 [dependencies]
+anyhow = "1.0"
 fuzzmutator = "0.2"
+imgcompress = { path = "../imgcompress" }
 libc = "0.2"
 rmp-serde = "0.14"
+serde = "1.0"
