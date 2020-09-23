@@ -46,6 +46,18 @@ RUN cargo build --release -p runner
 # See https://github.com/rust-lang/rust/pull/40113
 RUN RUSTFLAGS="-C target-feature=-crt-static" cargo build --release -p mutator
 
+# Third stage builds dynamically linked btrfs-fuzz components
+FROM rust:latest as btrfsfuzz-dy
+
+WORKDIR /
+RUN mkdir btrfs-fuzz
+WORKDIR btrfs-fuzz
+COPY Cargo.toml Cargo.lock ./
+RUN mkdir src
+COPY src src
+RUN cargo update
+RUN cargo build --release -p mutator
+
 # Final stage build copies over binaries from build stages and only installs
 # runtime components.
 FROM aflplusplus/aflplusplus:latest
@@ -68,6 +80,6 @@ RUN git clone https://github.com/amluto/virtme.git
 COPY --from=kernel /linux/arch/x86/boot/bzImage .
 COPY --from=kernel /linux/vmlinux .
 COPY --from=btrfsfuzz /btrfs-fuzz/target/release/runner .
-COPY --from=btrfsfuzz /btrfs-fuzz/target/release/libmutator.so .
+COPY --from=btrfsfuzz-dy /btrfs-fuzz/target/release/libmutator.so .
 
 ENTRYPOINT ["virtme/virtme-run", "--kimg", "bzImage", "--rw", "--pwd", "--memory", "1024M"]
