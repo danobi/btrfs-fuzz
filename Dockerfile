@@ -41,7 +41,10 @@ COPY Cargo.toml Cargo.lock ./
 RUN mkdir src
 COPY src src
 RUN cargo update
-RUN cargo build --release
+RUN cargo build --release -p runner
+# Need the strange -C flag to build a .so on musl target
+# See https://github.com/rust-lang/rust/pull/40113
+RUN RUSTFLAGS="-C target-feature=-crt-static" cargo build --release -p mutator
 
 # Final stage build copies over binaries from build stages and only installs
 # runtime components.
@@ -65,5 +68,6 @@ RUN git clone https://github.com/amluto/virtme.git
 COPY --from=kernel /linux/arch/x86/boot/bzImage .
 COPY --from=kernel /linux/vmlinux .
 COPY --from=btrfsfuzz /btrfs-fuzz/target/release/runner .
+COPY --from=btrfsfuzz /btrfs-fuzz/target/release/libmutator.so .
 
 ENTRYPOINT ["virtme/virtme-run", "--kimg", "bzImage", "--rw", "--pwd", "--memory", "1024M"]
