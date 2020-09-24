@@ -9,6 +9,13 @@ use crate::structs::*;
 use crate::tree;
 use crate::CompressedBtrfsImage;
 
+/// Helper struct to compress a valid btrfs image.
+///
+/// The first pass implementation of this struct only extracts the btree metadata for fuzzing. In
+/// theory, it'd be useful to extract leaf node payloads for metadata trees and see how the kernel
+/// reacts to that data being fuzzed. It should be relatively straightforward to implement that in
+/// the future. Just add more entries to `CompressedBtrfsImage::metadata` and
+/// `CompressedBtrfsImage::data` as the trees are walked.
 pub struct Btrfs<'a> {
     image: &'a [u8],
     superblock: &'a BtrfsSuperblock,
