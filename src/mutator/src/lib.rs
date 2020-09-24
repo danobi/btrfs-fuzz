@@ -76,7 +76,7 @@ pub extern "C" fn afl_custom_fuzz(
     let mutator = unsafe { &mut *(data as *mut Mutator) };
 
     // Deserialize input
-    let serialized: &[u8] = unsafe { slice::from_raw_parts(buf, buf_size as usize) };
+    let serialized: &[u8] = unsafe { slice::from_raw_parts(buf, buf_size) };
     let mut deserialized: CompressedBtrfsImage =
         from_read_ref(&serialized).expect("Failed to deserialize fuzzer input");
 
