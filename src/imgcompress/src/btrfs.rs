@@ -57,6 +57,8 @@ impl<'a> Btrfs<'a> {
         compressed.base = encode_all(self.image, 0)?;
 
         // Save superblock
+        //
+        // TODO: should we save the other superblocks too?
         compressed.metadata.push((
             BTRFS_SUPERBLOCK_OFFSET.try_into()?,
             size_of::<BtrfsSuperblock>().try_into()?,
