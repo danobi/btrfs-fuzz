@@ -76,6 +76,28 @@ def cmd_shell(args):
     sh(" ".join(c))
 
 
+def cmd_seed(args):
+    if pathlib.Path(args.state_dir).exists():
+        print(f"{args.state_dir} already exists, noop-ing")
+        return
+
+    pathlib.Path.mkdir(pathlib.Path(f"{args.state_dir}/input"), parents=True)
+    pathlib.Path.mkdir(pathlib.Path(f"{args.state_dir}/output"))
+
+    # Generate raw image
+    image_path = pathlib.Path(f"{args.state_dir}/input/image")
+    with open(image_path, "wb") as i:
+        # 120 MB is just about the minimum size for a raw btrfs image
+        i.truncate(120 << 20)
+
+        sh(f"mkfs.btrfs {image_path}")
+
+    # Compress raw image into a new file and then remove the raw image
+    compressed_image_path = f"{args.state_dir}/input/img_compressed"
+    sh(f"cargo run --bin imgcompress -- compress {image_path} {compressed_image_path}")
+    sh(f"rm {image_path}")
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="x", formatter_class=argparse.ArgumentDefaultsHelpFormatter
@@ -90,8 +112,10 @@ def main():
 
     run = subparsers.add_parser("run", help="run fuzzer")
     run.add_argument(
-        "state_dir",
+        "-s",
+        "--state-dir",
         type=str,
+        default="./_state",
         help="Shared state directory between host and VM, mounted in VM at "
         "/state. The directory must contain `input` and `output` "
         "subdirectories, with `input` containing initial test cases.",
@@ -103,9 +127,20 @@ def main():
         "-s",
         "--state-dir",
         type=str,
+        default="./_state",
         help="Shared state directory between host and VM, mounted in VM at /state",
     )
     shell.set_defaults(func=cmd_shell)
+
+    seed = subparsers.add_parser("seed", help="seed input corpus")
+    seed.add_argument(
+        "-s",
+        "--state-dir",
+        type=str,
+        default="./_state",
+        help="Shared state directory between host and VM",
+    )
+    seed.set_defaults(func=cmd_seed)
 
     help = subparsers.add_parser("help", help="print help")
     help.set_defaults(func=lambda _: parser.print_help())
