@@ -8,6 +8,7 @@ pub const BTRFS_SUPERBLOCK_OFFSET: usize = 0x10_000;
 pub const BTRFS_SUPERBLOCK_OFFSET2: usize = 0x4_000_000;
 pub const BTRFS_SUPERBLOCK_OFFSET3: usize = 0x4_000_000_000;
 pub const BTRFS_SUPERBLOCK_MAGIC: [u8; 8] = *b"_BHRfS_M";
+pub const BTRFS_SUPERBLOCK_SIZE: usize = 4096;
 pub const BTRFS_CSUM_TYPE_CRC32: u16 = 0;
 
 pub const BTRFS_CHUNK_ITEM_KEY: u8 = 228;

@@ -1,7 +1,6 @@
 use std::convert::TryInto;
 #[cfg(test)]
 use std::io::{Read, Seek, SeekFrom};
-use std::mem::size_of;
 #[cfg(test)]
 use std::process::Command;
 
@@ -61,9 +60,8 @@ pub fn decompress(compressed: &CompressedBtrfsImage) -> Result<Vec<u8>> {
     }
 
     // Take the first superblock
-    let superblock_sz = size_of::<BtrfsSuperblock>();
     let superblock;
-    if image.len() < (BTRFS_SUPERBLOCK_OFFSET + superblock_sz) {
+    if image.len() < (BTRFS_SUPERBLOCK_OFFSET + BTRFS_SUPERBLOCK_SIZE) {
         bail!("Decompressed image too short to contain superblock");
     } else {
         let superblock_ptr = image[BTRFS_SUPERBLOCK_OFFSET..].as_mut_ptr() as *mut BtrfsSuperblock;
@@ -84,7 +82,7 @@ pub fn decompress(compressed: &CompressedBtrfsImage) -> Result<Vec<u8>> {
             || offset == BTRFS_SUPERBLOCK_OFFSET2
             || offset == BTRFS_SUPERBLOCK_OFFSET3
         {
-            superblock_sz
+            BTRFS_SUPERBLOCK_SIZE
         } else {
             superblock.node_size.try_into()?
         };

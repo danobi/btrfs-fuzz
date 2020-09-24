@@ -61,11 +61,10 @@ impl<'a> Btrfs<'a> {
         // TODO: should we save the other superblocks too?
         compressed.metadata.push((
             BTRFS_SUPERBLOCK_OFFSET.try_into()?,
-            size_of::<BtrfsSuperblock>().try_into()?,
+            BTRFS_SUPERBLOCK_SIZE.try_into()?,
         ));
         compressed.data.extend_from_slice(
-            &self.image
-                [BTRFS_SUPERBLOCK_OFFSET..(BTRFS_SUPERBLOCK_OFFSET + size_of::<BtrfsSuperblock>())],
+            &self.image[BTRFS_SUPERBLOCK_OFFSET..(BTRFS_SUPERBLOCK_OFFSET + BTRFS_SUPERBLOCK_SIZE)],
         );
 
         // Parse everything in the root tree
@@ -162,7 +161,7 @@ impl<'a> Btrfs<'a> {
 }
 
 fn parse_superblock(img: &[u8]) -> Result<&BtrfsSuperblock> {
-    if BTRFS_SUPERBLOCK_OFFSET + size_of::<BtrfsSuperblock>() > img.len() {
+    if BTRFS_SUPERBLOCK_OFFSET + BTRFS_SUPERBLOCK_SIZE > img.len() {
         bail!("Image to small to contain superblock");
     }
 
