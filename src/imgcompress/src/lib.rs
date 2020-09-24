@@ -97,12 +97,10 @@ pub fn decompress(compressed: &CompressedBtrfsImage) -> Result<Vec<u8>> {
         hasher.update(&image[begin..end]);
         let checksum = hasher.finalize();
 
-        // Write checksum back into block
+        // Write checksum back into block. NB a crc32 checksum is only 4 bytes long. We'll leave
+        // the other 28 bytes alone.
         let _: Vec<_> = image
-            .splice(
-                offset..(offset + BTRFS_CSUM_SIZE),
-                checksum.to_le_bytes().iter().cloned(),
-            )
+            .splice(offset..(offset + 4), checksum.to_le_bytes().iter().cloned())
             .collect();
     }
 
