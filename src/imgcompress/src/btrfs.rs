@@ -173,7 +173,7 @@ fn parse_superblock(img: &[u8]) -> Result<&BtrfsSuperblock> {
         bail!("Superblock magic is wrong");
     }
 
-    Ok(unsafe { &*superblock_ptr })
+    Ok(superblock)
 }
 
 fn bootstrap_chunk_tree(superblock: &BtrfsSuperblock) -> Result<ChunkTreeCache> {
