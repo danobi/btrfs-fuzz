@@ -70,7 +70,8 @@ pub fn decompress(compressed: &CompressedBtrfsImage) -> Result<Vec<u8>> {
 
         // We only support CRC32 for now
         if superblock.csum_type != BTRFS_CSUM_TYPE_CRC32 {
-            superblock.csum_type = BTRFS_CSUM_TYPE_CRC32;
+            let ty: u16 = superblock.csum_type;
+            println!("Warning: wrong csum type in superblock, type={}", ty);
         }
     }
 
