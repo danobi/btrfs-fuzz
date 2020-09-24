@@ -67,7 +67,7 @@ pub extern "C" fn afl_custom_init(
 pub extern "C" fn afl_custom_fuzz(
     data: *mut libc::c_void,
     buf: *mut u8,
-    buf_size: u8,
+    buf_size: libc::size_t,
     out_buf: *mut *mut u8,
     _add_buf: *mut u8,
     _add_buf_size: libc::size_t,
