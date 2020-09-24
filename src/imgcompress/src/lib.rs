@@ -1,7 +1,13 @@
 use std::convert::TryInto;
+#[cfg(test)]
+use std::io::{Read, Seek, SeekFrom};
+#[cfg(test)]
+use std::process::Command;
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+#[cfg(test)]
+use tempfile::NamedTempFile;
 use zstd::stream::decode_all;
 
 mod btrfs;
@@ -56,7 +62,33 @@ pub fn decompress(compressed: &CompressedBtrfsImage) -> Result<Vec<u8>> {
     Ok(image)
 }
 
+/// Test that compressing and decompressing an image results in bit-for-bit equality
 #[test]
-fn test_mount() {
-    // TODO: test compress + decompress + mount
+fn test_compress_decompress() {
+    let mut orig = NamedTempFile::new().expect("Failed to create tempfile");
+    // mkfs.btrfs needs at least 120 MB to create an image
+    orig.as_file()
+        .set_len(120 << 20)
+        .expect("Failed to increase orig image size");
+    // Seek to beginning just in case
+    orig.as_file_mut()
+        .seek(SeekFrom::Start(0))
+        .expect("Failed to seek to beginning of orig image");
+
+    // mkfs.brtrfs
+    let rc = Command::new("mkfs.btrfs")
+        .arg(orig.path())
+        .status()
+        .expect("Failed to run mkfs.btrfs");
+    assert!(rc.success());
+
+    let mut orig_buffer = Vec::new();
+    orig.as_file()
+        .read_to_end(&mut orig_buffer)
+        .expect("Failed to read original image");
+
+    let compressed = compress(&orig_buffer).expect("Failed to compress image");
+    let decompressed = decompress(&compressed).expect("Failed to decompress image");
+
+    assert_eq!(orig_buffer, decompressed);
 }
