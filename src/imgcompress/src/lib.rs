@@ -5,7 +5,7 @@ use std::io::{Read, Seek, SeekFrom};
 use std::process::Command;
 
 use anyhow::{bail, Result};
-use crc32fast::Hasher;
+use crc32c::crc32c_append;
 use serde::{Deserialize, Serialize};
 #[cfg(test)]
 use tempfile::NamedTempFile;
@@ -89,14 +89,13 @@ pub fn decompress(compressed: &CompressedBtrfsImage) -> Result<Vec<u8>> {
         assert_ne!(block_size, 0);
 
         // Calculate checksum for block
-        let mut hasher = Hasher::new();
         let begin = offset + BTRFS_CSUM_SIZE;
         let end = offset + block_size - BTRFS_CSUM_SIZE;
-        hasher.update(&image[begin..end]);
-        let checksum = hasher.finalize();
+        let checksum: u32 = crc32c_append(BTRFS_CSUM_CRC32_SEED, &image[begin..end]);
 
-        // Write checksum back into block. NB a crc32 checksum is only 4 bytes long. We'll leave
-        // the other 28 bytes alone.
+        // Write checksum back into block
+        //
+        // NB: a crc32c checksum is only 4 bytes long. We'll leave the other 28 bytes alone.
         let _: Vec<_> = image
             .splice(offset..(offset + 4), checksum.to_le_bytes().iter().cloned())
             .collect();

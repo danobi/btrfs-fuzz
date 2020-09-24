@@ -75,13 +75,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "crc32fast"
-version = "1.2.0"
+name = "crc32c"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba125de2af0df55319f41944744ad91c71113bf74a4646efff39afe1f6842db1"
-dependencies = [
- "cfg-if",
-]
+checksum = "f6419af41d57055d753ec718ab9318e08d35378f0094b3ae4779ae15857951aa"
 
 [[package]]
 name = "either"
@@ -171,7 +168,7 @@ name = "imgcompress"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "crc32fast",
+ "crc32c",
  "rmp-serde",
  "serde",
  "structopt",
