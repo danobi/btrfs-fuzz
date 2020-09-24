@@ -54,7 +54,7 @@ pub fn decompress(compressed: &CompressedBtrfsImage) -> Result<Vec<u8>> {
         let _: Vec<_> = image
             .splice(
                 offset..(offset + size),
-                compressed.data[data_idx..(data_idx + size)].iter().cloned(),
+                compressed.data[data_idx..].iter().cloned(),
             )
             .collect();
         data_idx += size;
