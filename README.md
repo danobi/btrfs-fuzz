@@ -8,11 +8,13 @@
 ## Dependencies
 
 `btrfs-fuzz` is mostly self-contained inside a docker image. The only things you
-need on your host is:
+need on your host are:
 
+* `btrfs-progs`
 * [`podman`][5]
-* QEMU
 * python3
+* QEMU
+* Rust toolchain
 
 ## Quickstart
 
@@ -21,7 +23,7 @@ $ git clone https://github.com/danobi/btrfs-fuzz.git
 $ cd btrfs-fuzz
 $ ./x.py build
 $ ./x.py seed
-$ ./x.py run ./_state
+$ ./x.py run
 ```
 
 ## x.py
