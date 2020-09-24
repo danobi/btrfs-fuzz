@@ -123,11 +123,11 @@ fn test_compress_decompress() {
         .expect("Failed to seek to beginning of orig image");
 
     // mkfs.brtrfs
-    let rc = Command::new("mkfs.btrfs")
+    let output = Command::new("mkfs.btrfs")
         .arg(orig.path())
-        .status()
+        .output()
         .expect("Failed to run mkfs.btrfs");
-    assert!(rc.success());
+    assert!(output.status.success());
 
     let mut orig_buffer = Vec::new();
     orig.as_file()
