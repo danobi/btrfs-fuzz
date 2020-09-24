@@ -1,11 +1,14 @@
-const BTRFS_CSUM_SIZE: usize = 32;
+pub const BTRFS_CSUM_SIZE: usize = 32;
 const BTRFS_LABEL_SIZE: usize = 256;
 const BTRFS_FSID_SIZE: usize = 16;
 const BTRFS_UUID_SIZE: usize = 16;
 const BTRFS_SYSTEM_CHUNK_ARRAY_SIZE: usize = 2048;
 
 pub const BTRFS_SUPERBLOCK_OFFSET: usize = 0x10_000;
+pub const BTRFS_SUPERBLOCK_OFFSET2: usize = 0x4_000_000;
+pub const BTRFS_SUPERBLOCK_OFFSET3: usize = 0x4_000_000_000;
 pub const BTRFS_SUPERBLOCK_MAGIC: [u8; 8] = *b"_BHRfS_M";
+pub const BTRFS_CSUM_TYPE_CRC32: u16 = 0;
 
 pub const BTRFS_CHUNK_ITEM_KEY: u8 = 228;
 pub const BTRFS_ROOT_ITEM_KEY: u8 = 132;

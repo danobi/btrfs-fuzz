@@ -1,10 +1,12 @@
 use std::convert::TryInto;
 #[cfg(test)]
 use std::io::{Read, Seek, SeekFrom};
+use std::mem::size_of;
 #[cfg(test)]
 use std::process::Command;
 
-use anyhow::Result;
+use anyhow::{bail, Result};
+use crc32fast::Hasher;
 use serde::{Deserialize, Serialize};
 #[cfg(test)]
 use tempfile::NamedTempFile;
@@ -16,6 +18,7 @@ mod structs;
 mod tree;
 
 use btrfs::Btrfs;
+use structs::*;
 
 #[derive(Deserialize, Serialize, Default)]
 pub struct CompressedBtrfsImage {
@@ -57,7 +60,51 @@ pub fn decompress(compressed: &CompressedBtrfsImage) -> Result<Vec<u8>> {
         data_idx += size;
     }
 
-    // XXX implement checksum and magic rewrites
+    // Take the first superblock
+    let superblock_sz = size_of::<BtrfsSuperblock>();
+    let superblock;
+    if image.len() < (BTRFS_SUPERBLOCK_OFFSET + superblock_sz) {
+        bail!("Decompressed image too short to contain superblock");
+    } else {
+        let superblock_ptr = image[BTRFS_SUPERBLOCK_OFFSET..].as_mut_ptr() as *mut BtrfsSuperblock;
+        superblock = unsafe { &mut *superblock_ptr };
+        assert_eq!(superblock.magic, BTRFS_SUPERBLOCK_MAGIC);
+
+        // We only support CRC32 for now
+        if superblock.csum_type != BTRFS_CSUM_TYPE_CRC32 {
+            superblock.csum_type = BTRFS_CSUM_TYPE_CRC32;
+        }
+    }
+
+    // Recalculate checksum for each block
+    for (offset, _) in &compressed.metadata {
+        let offset: usize = (*offset).try_into()?;
+
+        let block_size = if offset == BTRFS_SUPERBLOCK_OFFSET
+            || offset == BTRFS_SUPERBLOCK_OFFSET2
+            || offset == BTRFS_SUPERBLOCK_OFFSET3
+        {
+            superblock_sz
+        } else {
+            superblock.node_size.try_into()?
+        };
+        assert_ne!(block_size, 0);
+
+        // Calculate checksum for block
+        let mut hasher = Hasher::new();
+        let begin = offset + BTRFS_CSUM_SIZE;
+        let end = offset + block_size - BTRFS_CSUM_SIZE;
+        hasher.update(&image[begin..end]);
+        let checksum = hasher.finalize();
+
+        // Write checksum back into block
+        let _: Vec<_> = image
+            .splice(
+                offset..(offset + BTRFS_CSUM_SIZE),
+                checksum.to_le_bytes().iter().cloned(),
+            )
+            .collect();
+    }
 
     Ok(image)
 }
