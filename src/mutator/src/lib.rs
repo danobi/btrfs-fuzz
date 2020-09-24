@@ -77,8 +77,14 @@ pub extern "C" fn afl_custom_fuzz(
 
     // Deserialize input
     let serialized: &[u8] = unsafe { slice::from_raw_parts(buf, buf_size) };
-    let mut deserialized: CompressedBtrfsImage =
-        from_read_ref(&serialized).expect("Failed to deserialize fuzzer input");
+    let mut deserialized: CompressedBtrfsImage = match from_read_ref(&serialized) {
+        Ok(d) => d,
+        Err(e) => {
+            eprintln!("Failed to deserialize fuzzer input: {}", e);
+            unsafe { out_buf.write(ptr::null_mut()) };
+            return 0;
+        }
+    };
 
     // Mutate payload (but don't touch the metadata)
     mutator.engine.mutate(&mut deserialized.data);
@@ -87,9 +93,14 @@ pub extern "C" fn afl_custom_fuzz(
 
     // Serialize data again
     mutator.fuzz_buf.clear(); // Does not affect capacity
-    deserialized
-        .serialize(&mut Serializer::new(&mut mutator.fuzz_buf))
-        .expect("Failed to serialize fuzzer input");
+    match deserialized.serialize(&mut Serializer::new(&mut mutator.fuzz_buf)) {
+        Ok(_) => (),
+        Err(e) => {
+            eprintln!("Failed to serialize fuzzer input: {}", e);
+            unsafe { out_buf.write(ptr::null_mut()) };
+            return 0;
+        }
+    };
     assert!(mutator.fuzz_buf.len() <= max_size);
 
     // Yes, it's ok to hand out ref to the Vec we own. The API is designed this way
