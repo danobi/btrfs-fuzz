@@ -135,5 +135,5 @@ fn test_compress_decompress() {
     let compressed = compress(&orig_buffer).expect("Failed to compress image");
     let decompressed = decompress(&compressed).expect("Failed to decompress image");
 
-    assert_eq!(orig_buffer, decompressed);
+    assert!(orig_buffer == decompressed);
 }
