@@ -53,6 +53,10 @@ pub extern "C" fn afl_custom_init(
 
 /// Perform custom mutations on a given input
 ///
+/// Note that our implementation doesn't append or trim any data to/from the fuzzing
+/// payload. In theory it shouldn't be useful b/c the kernel driver usually won't read
+/// past the end of the structs it knows about.
+///
 /// @param[in] data pointer returned in afl_custom_init for this fuzz case
 /// @param[in] buf Pointer to input data to be mutated
 /// @param[in] buf_size Size of input data
