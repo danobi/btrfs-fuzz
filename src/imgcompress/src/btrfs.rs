@@ -2,6 +2,7 @@ use std::convert::TryInto;
 use std::mem::size_of;
 
 use anyhow::{anyhow, bail, Context, Result};
+use zstd::stream::encode_all;
 
 use crate::chunk_tree::{ChunkTreeCache, ChunkTreeKey, ChunkTreeValue};
 use crate::structs::*;
@@ -44,6 +45,9 @@ impl<'a> Btrfs<'a> {
     /// Compress the image
     pub fn compress(&self) -> Result<CompressedBtrfsImage> {
         let mut compressed = CompressedBtrfsImage::default();
+
+        // Compress and save base image
+        compressed.base = encode_all(self.image, 0)?;
 
         // Save superblock
         compressed.metadata.push((

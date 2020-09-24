@@ -2,6 +2,7 @@ use std::convert::TryInto;
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use zstd::stream::decode_all;
 
 mod btrfs;
 mod chunk_tree;
@@ -12,6 +13,8 @@ use btrfs::Btrfs;
 
 #[derive(Deserialize, Serialize, Default)]
 pub struct CompressedBtrfsImage {
+    /// Compressed original image. Fuzzed metadata should be laid on top of the original image.
+    pub base: Vec<u8>,
     /// Vector of (offset, size) tuples>
     ///
     /// For example, if `metadata` contained [(0, 10), (50, 5)], then `data.len()` == 15, where the
@@ -30,15 +33,8 @@ pub fn compress(img: &[u8]) -> Result<CompressedBtrfsImage> {
 ///
 /// Also rewrites superblock magic and checksums to be valid.
 pub fn decompress(compressed: &CompressedBtrfsImage) -> Result<Vec<u8>> {
-    // First figure out how big the image is gonna be
-    let mut max = (0, 0);
-    for (offset, size) in &compressed.metadata {
-        if *offset > max.0 {
-            max = (*offset, *size);
-        }
-    }
-
-    let mut image: Vec<u8> = vec![0; (max.0 + max.1).try_into()?];
+    // Decompress the base image
+    let mut image = decode_all(compressed.base.as_slice())?;
 
     // Now overwrite `image` with the metadata placed at their original offsets
     let mut data_idx = 0;
