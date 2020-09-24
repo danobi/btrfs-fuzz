@@ -41,13 +41,21 @@ def cmd_run(args):
     p.sendline('/bin/bash -c "echo core > /proc/sys/kernel/core_pattern"')
 
     c = []
+    # We didn't build with the afl toolchain so our binary is not watermarked
     c.append("AFL_SKIP_BIN_CHECK=1")
+
+    # Help debug crashes in our runner
     c.append("AFL_DEBUG_CHILD_OUTPUT=1")
+
+    # Our custom mutator only fuzzes the FS metadata. Anything else is
+    # ineffective
     c.append("AFL_CUSTOM_MUTATOR_LIBRARY=/btrfs-fuzz/libmutator.so")
     c.append("AFL_CUSTOM_MUTATOR_ONLY=1")
+
     # The custom mutator doesn't append or delete bytes. Trimming also messes
     # with deserializing input so, don't trim.
     c.append("AFL_DISABLE_TRIM=1")
+
     c.append("/usr/local/bin/afl-fuzz")
     c.append("-i /state/input")
     c.append("-o /state/output")
