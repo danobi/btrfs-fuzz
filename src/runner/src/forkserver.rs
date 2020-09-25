@@ -99,20 +99,22 @@ impl Forkserver {
 
     /// Initiate a new test run with AFL
     pub fn new_run(&mut self) -> Result<()> {
-        if !self.disabled {
-            // Exactly 4 bytes
-            let mut was_killed: Vec<u8> = vec![0; 4];
+        if self.disabled {
+            return Ok(());
+        }
 
-            // We don't really care if AFL "killed" our child b/c we gave AFL a dummy PID anyways,
-            // so ignore `was_killed` result
-            if read(AFL_FORKSERVER_READ_FD, &mut was_killed)? != 4 {
-                bail!("Failed to read was_killed from AFL");
-            }
+        // Exactly 4 bytes
+        let mut was_killed: Vec<u8> = vec![0; 4];
 
-            let fake_pid = i32::MAX.to_ne_bytes();
-            if write(AFL_FORKSERVER_WRITE_FD, &fake_pid)? != 4 {
-                bail!("Failed to give AFL fake_pid");
-            }
+        // We don't really care if AFL "killed" our child b/c we gave AFL a dummy PID anyways,
+        // so ignore `was_killed` result
+        if read(AFL_FORKSERVER_READ_FD, &mut was_killed)? != 4 {
+            bail!("Failed to read was_killed from AFL");
+        }
+
+        let fake_pid = i32::MAX.to_ne_bytes();
+        if write(AFL_FORKSERVER_WRITE_FD, &fake_pid)? != 4 {
+            bail!("Failed to give AFL fake_pid");
         }
 
         Ok(())
