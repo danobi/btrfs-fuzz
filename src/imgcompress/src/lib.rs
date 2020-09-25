@@ -91,7 +91,7 @@ pub fn decompress(compressed: &CompressedBtrfsImage) -> Result<Vec<u8>> {
 
         // Calculate checksum for block
         let begin = offset + BTRFS_CSUM_SIZE;
-        let end = offset + block_size - BTRFS_CSUM_SIZE;
+        let end = offset + block_size;
         let checksum: u32 = crc32c_append(BTRFS_CSUM_CRC32_SEED, &image[begin..end]);
 
         // Write checksum back into block
