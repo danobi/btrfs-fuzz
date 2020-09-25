@@ -85,13 +85,18 @@ fn kmsg_contains_bug(fd: i32) -> Result<bool> {
 }
 
 /// Get next testcase from AFL and write it into file `into`
-fn get_next_testcase<P: AsRef<Path>>(into: P) -> Result<()> {
+///
+/// Returns true on success, false on no more input
+fn get_next_testcase<P: AsRef<Path>>(into: P) -> Result<bool> {
     let mut buffer = Vec::new();
 
     // AFL feeds inputs via stdin
     let stdin = io::stdin();
     let mut handle = stdin.lock();
     handle.read_to_end(&mut buffer)?;
+    if buffer.len() == 0 {
+        return Ok(false);
+    }
 
     // Decompress input
     let deserialized = from_read_ref(&buffer)?;
@@ -106,7 +111,7 @@ fn get_next_testcase<P: AsRef<Path>>(into: P) -> Result<()> {
 
     file.write_all(&image)?;
 
-    Ok(())
+    Ok(true)
 }
 
 /// Test code
@@ -138,7 +143,9 @@ fn main() -> Result<()> {
         forkserver.new_run()?;
 
         // Now pull the next testcase from AFL and write it to tmpfs
-        get_next_testcase(FUZZED_IMAGE_PATH)?;
+        if !get_next_testcase(FUZZED_IMAGE_PATH)? {
+            break;
+        }
 
         // Start coverage collection, do work, then disable collection
         kcov.enable()?;
@@ -172,4 +179,6 @@ fn main() -> Result<()> {
             forkserver.report(RunStatus::Success)?;
         }
     }
+
+    Ok(())
 }
