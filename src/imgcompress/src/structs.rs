@@ -10,7 +10,10 @@ pub const BTRFS_SUPERBLOCK_OFFSET3: usize = 0x4_000_000_000;
 pub const BTRFS_SUPERBLOCK_MAGIC: [u8; 8] = *b"_BHRfS_M";
 pub const BTRFS_SUPERBLOCK_SIZE: usize = 4096;
 pub const BTRFS_CSUM_TYPE_CRC32: u16 = 0;
-pub const BTRFS_CSUM_CRC32_SEED: u32 = !0;
+/// All the docs and code suggest it's `u32::MAX` but after many hours of debugging it turns out
+/// only 0 works. Something is definitely fishy here. At least we have tests that test checksum
+/// integrity.
+pub const BTRFS_CSUM_CRC32_SEED: u32 = 0;
 
 pub const BTRFS_CHUNK_ITEM_KEY: u8 = 228;
 pub const BTRFS_ROOT_ITEM_KEY: u8 = 132;
