@@ -139,8 +139,12 @@ def cmd_repro(args):
     c.append(f"< /state/{image_fname}")
 
     p.expect("root@.*#")
-    # Send all child output to stdout
-    p.logfile_read = sys.stdout
+
+    # Send all child output to stdout. We have to open stdout in bytes mode
+    # otherwise pexpect freaks out.
+    stdout = os.fdopen(sys.stdout.fileno(), "wb")
+    p.logfile_read = stdout
+
     p.sendline(" ".join(c))
 
     if args.exit:
