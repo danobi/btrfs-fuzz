@@ -42,7 +42,7 @@ pub fn compress(img: &[u8]) -> Result<CompressedBtrfsImage> {
 /// Also rewrites superblock magic and checksums to be valid.
 pub fn decompress(compressed: &CompressedBtrfsImage) -> Result<Vec<u8>> {
     // Decompress the base image
-    let mut image = decode_all(compressed.base.as_slice())?;
+    let mut image: Vec<u8> = decode_all(compressed.base.as_slice())?;
 
     // Now overwrite `image` with the metadata placed at their original offsets
     let mut data_idx = 0;
