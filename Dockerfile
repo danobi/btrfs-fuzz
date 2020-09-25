@@ -65,6 +65,7 @@ RUN apt-get update && apt-get install -y \
   busybox \
   kmod \
   linux-tools-generic \
+  less \
   strace \
   qemu-system-x86
 
