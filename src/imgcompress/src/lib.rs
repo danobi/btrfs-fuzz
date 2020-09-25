@@ -109,9 +109,8 @@ pub fn decompress(compressed: &CompressedBtrfsImage) -> Result<Vec<u8>> {
     Ok(image)
 }
 
-/// Test that compressing and decompressing an image results in bit-for-bit equality
-#[test]
-fn test_compress_decompress() {
+#[cfg(test)]
+fn generate_test_image() -> Vec<u8> {
     let mut orig = NamedTempFile::new().expect("Failed to create tempfile");
     // mkfs.btrfs needs at least 120 MB to create an image
     orig.as_file()
@@ -134,8 +133,36 @@ fn test_compress_decompress() {
         .read_to_end(&mut orig_buffer)
         .expect("Failed to read original image");
 
+    orig_buffer
+}
+
+/// Test that compressing and decompressing an image results in bit-for-bit equality
+#[test]
+fn test_compress_decompress() {
+    let orig_buffer = generate_test_image();
     let compressed = compress(&orig_buffer).expect("Failed to compress image");
     let decompressed = decompress(&compressed).expect("Failed to decompress image");
 
+    assert!(orig_buffer == decompressed);
+}
+
+/// Test that checksums are correctly fixed up if they get corrupted
+#[test]
+fn test_checksum_fixup() {
+    let orig_buffer = generate_test_image();
+
+    // This is pretty pricey -- 120M copy. Hopefully it doesn't cause any issues
+    let mut corrupted_buffer = orig_buffer.clone();
+    let random: Vec<u8> = vec![0xDE, 0xAD, 0xBE, 0xEF];
+    corrupted_buffer.splice(
+        BTRFS_SUPERBLOCK_OFFSET..(BTRFS_SUPERBLOCK_OFFSET + 4),
+        random.iter().cloned(),
+    );
+
+    // Now compress and decompress corrupted buffer
+    let compressed = compress(&corrupted_buffer).expect("Failed to compress corrupted image");
+    let decompressed = decompress(&compressed).expect("Failed to decompress corrupted image");
+
+    // Corrupted checksum should be fixed up
     assert!(orig_buffer == decompressed);
 }
