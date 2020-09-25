@@ -120,6 +120,10 @@ impl Forkserver {
 
     /// Report result of test run to AFL
     pub fn report(&mut self, status: RunStatus) -> Result<()> {
+        if self.disabled {
+            return Ok(());
+        }
+
         let val: i32 = match status {
             RunStatus::Success => 0,
             // 139 is SIGSEGV terminated exit code as encoded in `wait(2)`s `wstatus`
