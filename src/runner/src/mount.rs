@@ -1,12 +1,15 @@
 use std::fs;
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use loopdev::{LoopControl, LoopDevice};
 use sys_mount::{FilesystemType, MountFlags, Unmount, UnmountFlags};
 
 pub struct Mounter {
     loopdev: LoopDevice,
+    /// If a file is attached to the loopdev
+    attached: AtomicBool,
 }
 
 impl Mounter {
@@ -17,16 +20,24 @@ impl Mounter {
             .next_free()
             .with_context(|| "Failed to get next free loop dev".to_string())?;
 
-        Ok(Self { loopdev: device })
+        Ok(Self {
+            loopdev: device,
+            attached: AtomicBool::new(false),
+        })
     }
 
     pub fn mount<P: AsRef<Path>>(&mut self, src: P, dest: &'static str) -> Result<Mount> {
         // Will fail if directory already exists
         let _ = fs::create_dir(dest);
 
+        if self.attached.load(Ordering::SeqCst) {
+            bail!("Loop dev is still being used by a previous mount");
+        }
+
         self.loopdev
             .attach_file(src)
             .with_context(|| "Failed to attach file to loop dev".to_string())?;
+        self.attached.store(true, Ordering::SeqCst);
 
         let mount = sys_mount::Mount::new(
             self.loopdev
@@ -43,11 +54,13 @@ impl Mounter {
             Ok(m) => Ok(Mount {
                 inner: m,
                 loopdev: &self.loopdev,
+                attached: &self.attached,
             }),
             Err(e) => {
                 // Be careful to detach the backing file from the loopdev if the mount fails,
                 // otherwise following attaches will fail with EBUSY
                 self.loopdev.detach()?;
+                self.attached.store(false, Ordering::SeqCst);
                 Err(e)
             }
         }
@@ -57,7 +70,9 @@ impl Mounter {
 impl Drop for Mounter {
     fn drop(&mut self) {
         // Panic here if detaching fails b/c otherwise we'd slowly leak resources.
-        self.loopdev.detach().unwrap();
+        if self.attached.load(Ordering::SeqCst) {
+            self.loopdev.detach().unwrap();
+        }
     }
 }
 
@@ -67,6 +82,7 @@ impl Drop for Mounter {
 pub struct Mount<'a> {
     inner: sys_mount::Mount,
     loopdev: &'a LoopDevice,
+    attached: &'a AtomicBool,
 }
 
 impl<'a> Drop for Mount<'a> {
@@ -74,5 +90,6 @@ impl<'a> Drop for Mount<'a> {
         // Panic here if detaching fails b/c otherwise we'd slowly leak resources.
         self.inner.unmount(UnmountFlags::empty()).unwrap();
         self.loopdev.detach().unwrap();
+        self.attached.store(false, Ordering::SeqCst);
     }
 }
