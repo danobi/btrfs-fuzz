@@ -57,6 +57,7 @@ def cmd_run(args):
     c.append("AFL_DISABLE_TRIM=1")
 
     c.append("/usr/local/bin/afl-fuzz")
+    c.append("-m 500")
     c.append("-i /state/input")
     c.append("-o /state/output")
     c.append("-- /btrfs-fuzz/runner")
