@@ -14,6 +14,14 @@ def sh(cmd):
         sys.exit(1)
 
 
+# Docker tends to freak out if a directory begins with `_`
+def sanitize_docker_dir(dir):
+    if dir[0] == "/":
+        return dir
+    else:
+        return "./" + dir
+
+
 def cmd_build(args):
     if args.local:
         sh("podman build -t btrfs-fuzz .")
@@ -29,7 +37,7 @@ def cmd_run(args):
     c = ["podman run"]
     c.append("-it")
     c.append("--privileged")
-    c.append(f"-v {args.state_dir}:/state")
+    c.append(f"-v {sanitize_docker_dir(args.state_dir)}:/state")
 
     if args.local:
         c.append("localhost/btrfs-fuzz")
@@ -75,7 +83,7 @@ def cmd_shell(args):
     c.append("--privileged")
 
     if args.state_dir:
-        c.append(f"-v {args.state_dir}:/state")
+        c.append(f"-v {sanitize_docker_dir(args.state_dir)}:/state")
 
     if args.local:
         c.append("localhost/btrfs-fuzz")
