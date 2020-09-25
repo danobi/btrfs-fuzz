@@ -121,3 +121,18 @@ pub extern "C" fn afl_custom_deinit(data: *mut libc::c_void) {
     // Reconstruct box and immediately drop to free resources
     unsafe { Box::from_raw(data as *mut Mutator) };
 }
+
+/// Not confident that the 3rd party mutator works. Let's just make sure it seems sane.
+#[test]
+fn test_mutator_works() {
+    let mut engine = MutatorEngine::new().expect("Failed to init mutator engine");
+    let mut one = vec![0; 10_000];
+    let mut two = vec![0; 10_000];
+
+    assert!(one == two);
+    engine.mutate(&mut one);
+    assert!(one != two);
+    two = one.clone();
+    engine.mutate(&mut two);
+    assert!(one != two);
+}
