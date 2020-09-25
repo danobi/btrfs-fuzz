@@ -29,6 +29,8 @@ pub struct CompressedBtrfsImage {
     /// first 10 bytes would go to offset 0 and the last 5 bytes would go to offset 50.
     pub metadata: Vec<(u64, u64)>,
     pub data: Vec<u8>,
+    /// Size of each node in the btree. Used to calculate checksum in node headers.
+    node_size: usize,
 }
 
 /// Compress a btrfs image
@@ -59,10 +61,7 @@ pub fn decompress(compressed: &CompressedBtrfsImage) -> Result<Vec<u8>> {
         data_idx += size;
     }
 
-    // Keep a copy of node_size b/c if somehow the `Vec::splice`s cause the underlying data to be
-    // moved, we don't want to hang onto a dangling reference.
-    let node_size: usize;
-    // Take the first superblock
+    // Fixup the fist superblock
     if image.len() < (BTRFS_SUPERBLOCK_OFFSET + BTRFS_SUPERBLOCK_SIZE) {
         bail!("Decompressed image too short to contain superblock");
     } else {
@@ -78,8 +77,6 @@ pub fn decompress(compressed: &CompressedBtrfsImage) -> Result<Vec<u8>> {
         if superblock.magic != BTRFS_SUPERBLOCK_MAGIC {
             superblock.magic = BTRFS_SUPERBLOCK_MAGIC;
         }
-
-        node_size = superblock.node_size.try_into()?;
     }
 
     // Recalculate checksum for each block
@@ -92,7 +89,7 @@ pub fn decompress(compressed: &CompressedBtrfsImage) -> Result<Vec<u8>> {
         {
             BTRFS_SUPERBLOCK_SIZE
         } else {
-            node_size
+            compressed.node_size
         };
         assert_ne!(block_size, 0);
 

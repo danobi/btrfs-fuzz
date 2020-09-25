@@ -56,6 +56,9 @@ impl<'a> Btrfs<'a> {
         // Compress and save base image
         compressed.base = encode_all(self.image, 0)?;
 
+        // Save node size b/c the value in the superblock could get fuzzed to something else
+        compressed.node_size = self.superblock.node_size.try_into()?;
+
         // Save superblock
         //
         // TODO: should we save the other superblocks too?
