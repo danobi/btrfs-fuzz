@@ -123,6 +123,11 @@ impl Forkserver {
     /// Report result of test run to AFL
     pub fn report(&mut self, status: RunStatus) -> Result<()> {
         if self.disabled {
+            match status {
+                RunStatus::Success => (),
+                RunStatus::Failure => eprintln!(">===== FAILURE REPORTED =====<"),
+            };
+
             return Ok(());
         }
 
