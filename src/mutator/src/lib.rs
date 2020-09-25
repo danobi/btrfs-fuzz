@@ -126,13 +126,11 @@ pub extern "C" fn afl_custom_deinit(data: *mut libc::c_void) {
 #[test]
 fn test_mutator_works() {
     let mut engine = MutatorEngine::new().expect("Failed to init mutator engine");
-    let mut one = vec![0; 10_000];
-    let mut two = vec![0; 10_000];
+    let one = vec![0; 10_000];
 
-    assert!(one == two);
-    engine.mutate(&mut one);
-    assert!(one != two);
-    two = one.clone();
-    engine.mutate(&mut two);
-    assert!(one != two);
+    for _ in 0..10_000 {
+        let mut two = one.clone();
+        engine.mutate(&mut two);
+        assert!(one != two);
+    }
 }
