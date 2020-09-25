@@ -68,12 +68,15 @@ pub fn decompress(compressed: &CompressedBtrfsImage) -> Result<Vec<u8>> {
     } else {
         let superblock_ptr = image[BTRFS_SUPERBLOCK_OFFSET..].as_mut_ptr() as *mut BtrfsSuperblock;
         let superblock = unsafe { &mut *superblock_ptr };
-        assert_eq!(superblock.magic, BTRFS_SUPERBLOCK_MAGIC);
 
         // We only support CRC32 for now
         if superblock.csum_type != BTRFS_CSUM_TYPE_CRC32 {
             let ty: u16 = superblock.csum_type;
             println!("Warning: wrong csum type in superblock, type={}", ty);
+        }
+
+        if superblock.magic != BTRFS_SUPERBLOCK_MAGIC {
+            superblock.magic = BTRFS_SUPERBLOCK_MAGIC;
         }
 
         node_size = superblock.node_size.try_into()?;
@@ -161,6 +164,37 @@ fn test_checksum_fixup() {
 
     // Now compress and decompress corrupted buffer
     let compressed = compress(&corrupted_buffer).expect("Failed to compress corrupted image");
+    let decompressed = decompress(&compressed).expect("Failed to decompress corrupted image");
+
+    // Corrupted checksum should be fixed up
+    assert!(orig_buffer == decompressed);
+}
+
+#[test]
+fn test_superblock_magic_fixup() {
+    let orig_buffer = generate_test_image();
+
+    let mut compressed = compress(&orig_buffer).expect("Failed to compress corrupted image");
+
+    // Corrupt the magic in the superblock
+    let mut data_idx: usize = 0;
+    let mut corrupted_super = false;
+    for (offset, size) in &compressed.metadata {
+        let offset: usize = (*offset).try_into().unwrap();
+        let size: usize = (*size).try_into().unwrap();
+
+        if offset == BTRFS_SUPERBLOCK_OFFSET {
+            let superblock =
+                unsafe { &mut *(compressed.data[data_idx..].as_mut_ptr() as *mut BtrfsSuperblock) };
+            // Magic corruption
+            superblock.magic[3] = b'Z';
+            corrupted_super = true;
+        }
+
+        data_idx += size;
+    }
+    assert!(corrupted_super);
+
     let decompressed = decompress(&compressed).expect("Failed to decompress corrupted image");
 
     // Corrupted checksum should be fixed up
