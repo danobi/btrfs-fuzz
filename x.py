@@ -130,7 +130,7 @@ def cmd_repro(args):
     else:
         c.append("dxuu/btrfs-fuzz")
 
-    p = pexpect.spawn(" ".join(c))
+    p = pexpect.spawn(" ".join(c), encoding="utf-8")
     p.expect("root@.*#")
     p.sendline('/bin/bash -c "echo core > /proc/sys/kernel/core_pattern"')
 
@@ -139,10 +139,19 @@ def cmd_repro(args):
     c.append(f"< /state/{image_fname}")
 
     p.expect("root@.*#")
+    # Send all child output to stdout
+    p.logfile_read = sys.stdout
     p.sendline(" ".join(c))
 
-    # Give control back to terminal
-    p.interact()
+    if args.exit:
+        p.expect("root@.*#")
+
+        # `C-a x` to exit qemu
+        p.sendcontrol("a")
+        p.send("x")
+    else:
+        # Give control back to terminal
+        p.interact()
 
 
 def main():
@@ -194,6 +203,11 @@ def main():
         "image",
         type=str,
         help="btrfs filesystem image to test against (must be imgcompress-compressed)",
+    )
+    repro.add_argument(
+        "--exit",
+        action="store_true",
+        help="Exit VM after repro runs (useful for scripting)",
     )
     repro.set_defaults(func=cmd_repro)
 
