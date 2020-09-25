@@ -59,13 +59,15 @@ pub fn decompress(compressed: &CompressedBtrfsImage) -> Result<Vec<u8>> {
         data_idx += size;
     }
 
+    // Keep a copy of node_size b/c if somehow the `Vec::splice`s cause the underlying data to be
+    // moved, we don't want to hang onto a dangling reference.
+    let node_size: usize;
     // Take the first superblock
-    let superblock;
     if image.len() < (BTRFS_SUPERBLOCK_OFFSET + BTRFS_SUPERBLOCK_SIZE) {
         bail!("Decompressed image too short to contain superblock");
     } else {
         let superblock_ptr = image[BTRFS_SUPERBLOCK_OFFSET..].as_mut_ptr() as *mut BtrfsSuperblock;
-        superblock = unsafe { &mut *superblock_ptr };
+        let superblock = unsafe { &mut *superblock_ptr };
         assert_eq!(superblock.magic, BTRFS_SUPERBLOCK_MAGIC);
 
         // We only support CRC32 for now
@@ -73,6 +75,8 @@ pub fn decompress(compressed: &CompressedBtrfsImage) -> Result<Vec<u8>> {
             let ty: u16 = superblock.csum_type;
             println!("Warning: wrong csum type in superblock, type={}", ty);
         }
+
+        node_size = superblock.node_size.try_into()?;
     }
 
     // Recalculate checksum for each block
@@ -85,7 +89,7 @@ pub fn decompress(compressed: &CompressedBtrfsImage) -> Result<Vec<u8>> {
         {
             BTRFS_SUPERBLOCK_SIZE
         } else {
-            superblock.node_size.try_into()?
+            node_size
         };
         assert_ne!(block_size, 0);
 
