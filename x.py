@@ -107,6 +107,44 @@ def cmd_seed(args):
     sh(f"rm {image_path}")
 
 
+def cmd_repro(args):
+    import pexpect
+
+    print(f"Reproducing {args.image}")
+
+    # Share the entire directory containing the image under test
+    image_dir = str(pathlib.Path(args.image).parent)
+    if image_dir[0] != "/":
+        # Necessary so docker doesn't freak out
+        image_dir = "./" + image_dir
+
+    image_fname = str(pathlib.Path(args.image).name)
+
+    c = ["podman run"]
+    c.append("-it")
+    c.append("--privileged")
+    c.append(f"-v {image_dir}:/state")
+
+    if args.local:
+        c.append("localhost/btrfs-fuzz")
+    else:
+        c.append("dxuu/btrfs-fuzz")
+
+    p = pexpect.spawn(" ".join(c))
+    p.expect("root@.*#")
+    p.sendline('/bin/bash -c "echo core > /proc/sys/kernel/core_pattern"')
+
+    c = []
+    c.append("/btrfs-fuzz/runner")
+    c.append(f"< /state/{image_fname}")
+
+    p.expect("root@.*#")
+    p.sendline(" ".join(c))
+
+    # Give control back to terminal
+    p.interact()
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="x", formatter_class=argparse.ArgumentDefaultsHelpFormatter
@@ -150,6 +188,14 @@ def main():
         help="Shared state directory between host and VM",
     )
     seed.set_defaults(func=cmd_seed)
+
+    repro = subparsers.add_parser("repro", help="reproduce a test case")
+    repro.add_argument(
+        "image",
+        type=str,
+        help="btrfs filesystem image to test against (must be imgcompress-compressed)",
+    )
+    repro.set_defaults(func=cmd_repro)
 
     help = subparsers.add_parser("help", help="print help")
     help.set_defaults(func=lambda _: parser.print_help())
