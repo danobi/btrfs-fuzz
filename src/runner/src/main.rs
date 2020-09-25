@@ -11,6 +11,7 @@ use nix::errno::{errno, Errno};
 use nix::fcntl::{open, OFlag};
 use nix::sys::stat::Mode;
 use nix::unistd::{lseek, Whence};
+use rmp_serde::decode::from_read_ref;
 use structopt::StructOpt;
 
 mod constants;
@@ -92,6 +93,10 @@ fn get_next_testcase<P: AsRef<Path>>(into: P) -> Result<()> {
     let mut handle = stdin.lock();
     handle.read_to_end(&mut buffer)?;
 
+    // Decompress input
+    let deserialized = from_read_ref(&buffer)?;
+    let image = imgcompress::decompress(&deserialized)?;
+
     // Write out FS image
     let mut file = OpenOptions::new()
         .write(true)
@@ -99,7 +104,7 @@ fn get_next_testcase<P: AsRef<Path>>(into: P) -> Result<()> {
         .truncate(true)
         .open(into)?;
 
-    file.write_all(&buffer)?;
+    file.write_all(&image)?;
 
     Ok(())
 }

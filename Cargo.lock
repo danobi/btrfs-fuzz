@@ -416,9 +416,11 @@ name = "runner"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "imgcompress",
  "libc",
  "loopdev",
  "nix",
+ "rmp-serde",
  "structopt",
  "sys-mount",
 ]
