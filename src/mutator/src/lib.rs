@@ -124,6 +124,9 @@ pub extern "C" fn afl_custom_deinit(data: *mut libc::c_void) {
 
 /// Not confident that the 3rd party mutator works. Let's just make sure it seems sane.
 #[test]
+// Skip the test for now b/c maybe always mutating isn't a good thing. Who knows. Should be easy
+// enough to swap out a mutation engine some day and compare results.
+#[ignore]
 fn test_mutator_works() {
     let mut engine = MutatorEngine::new().expect("Failed to init mutator engine");
     let one = vec![0; 10_000];
