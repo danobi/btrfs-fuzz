@@ -140,20 +140,19 @@ def cmd_repro(args):
 
     p.expect("root@.*#")
 
-    # Send all child output to stdout. We have to open stdout in bytes mode
-    # otherwise pexpect freaks out.
-    stdout = os.fdopen(sys.stdout.fileno(), "wb")
-    p.logfile_read = stdout
-
-    p.sendline(" ".join(c))
-
     if args.exit:
+        # Send child output to stdout
+        p.logfile_read = sys.stdout
+        p.sendline(" ".join(c))
+
         p.expect("root@.*#")
 
         # `C-a x` to exit qemu
         p.sendcontrol("a")
         p.send("x")
     else:
+        p.sendline(" ".join(c))
+
         # Give control back to terminal
         p.interact()
 
