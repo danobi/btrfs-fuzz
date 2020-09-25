@@ -200,3 +200,55 @@ fn test_superblock_magic_fixup() {
     // Corrupted checksum should be fixed up
     assert!(orig_buffer == decompressed);
 }
+
+/// Test that checksums are recalculated on metadata changes. Note that this is pretty difficult to
+/// test accurately so we opt to just check that the checksum was changed.
+#[test]
+fn test_checksum_fixup_on_metadata_corruption() {
+    let orig_buffer = generate_test_image();
+
+    let mut compressed = compress(&orig_buffer).expect("Failed to compress corrupted image");
+    let ones: Vec<u8> = vec![1; 45];
+
+    let mut first = true;
+    let mut data_idx: usize = 0;
+    let mut csum_before: Option<Vec<u8>> = None;
+    let mut scribbed_offset: usize = 0;
+    for (offset, size) in &compressed.metadata {
+        let size: usize = (*size).try_into().unwrap();
+
+        // Skip superblock to avoid overtesting the superblock
+        if first {
+            first = false;
+            data_idx += size;
+            continue;
+        }
+
+        scribbed_offset = (*offset).try_into().unwrap();
+
+        // Store checksum before
+        csum_before = Some(compressed.data[data_idx..(data_idx + BTRFS_CSUM_SIZE)].to_owned());
+
+        // Scribble over metadata a little
+        let begin = data_idx + BTRFS_CSUM_SIZE;
+        let end = data_idx + BTRFS_CSUM_SIZE + ones.len();
+        let _: Vec<_> = compressed
+            .data
+            .splice(begin..end, ones.iter().cloned())
+            .collect();
+
+        data_idx += size;
+    }
+
+    let decompressed = decompress(&compressed).expect("Failed to decompress corrupted image");
+    let csum_after = &decompressed[scribbed_offset..(scribbed_offset + BTRFS_CSUM_SIZE)];
+
+    // First test that the ones we wrote are where we expect so we know we didn't mess up the
+    // offset calculations somewhere
+    let begin = scribbed_offset + BTRFS_CSUM_SIZE;
+    let end = scribbed_offset + BTRFS_CSUM_SIZE + ones.len();
+    assert!(&decompressed[begin..end] == ones.as_slice());
+
+    // Test that checksum changed
+    assert!(csum_before.unwrap() != csum_after);
+}
