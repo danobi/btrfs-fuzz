@@ -29,6 +29,34 @@ def cmd_build(args):
         sh("podman pull dxuu/btrfs-fuzz")
 
 
+def cmd_build_tar(args):
+    # First build the latest image
+    cmd_build(args)
+
+    tmpname = "btrfs-fuzz-tmp"
+    if not args.file.endswith(".tar"):
+        args.file = args.file + ".tar"
+
+    c = ["podman export"]
+    c.append("$(")
+    c.append("podman create --name")
+    c.append(tmpname)
+
+    if args.local:
+        c.append("localhost/btrfs-fuzz")
+    else:
+        c.append("dxuu/btrfs-fuzz")
+
+    c.append("/bin/true")
+    c.append(")")
+
+    c.append("-o")
+    c.append(args.file)
+
+    sh(" ".join(c))
+    sh(f"podman rm {tmpname}")
+
+
 def cmd_run(args):
     import pexpect
 
@@ -176,6 +204,16 @@ def main():
 
     build = subparsers.add_parser("build", help="build btrfs-fuzz components")
     build.set_defaults(func=cmd_build)
+
+    build_tar = subparsers.add_parser(
+        "build-tar", help="build btrfs-fuzz image into a tarball"
+    )
+    build_tar.add_argument(
+        "file",
+        type=str,
+        help="Filename for output tarball",
+    )
+    build_tar.set_defaults(func=cmd_build_tar)
 
     run = subparsers.add_parser("run", help="run fuzzer")
     run.add_argument(
