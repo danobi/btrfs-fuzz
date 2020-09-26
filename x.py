@@ -6,6 +6,9 @@ import pathlib
 import subprocess
 import sys
 
+DOCKER_IMAGE_REMOTE = "dxuu/btrfs-fuzz"
+DOCKER_IMAGE_LOCAL = "localhost/btrfs-fuzz"
+
 
 def sh(cmd):
     try:
@@ -26,7 +29,7 @@ def cmd_build(args):
     if args.local:
         sh("podman build -t btrfs-fuzz .")
     else:
-        sh("podman pull dxuu/btrfs-fuzz")
+        sh(f"podman pull {DOCKER_IMAGE_REMOTE}")
 
 
 def cmd_build_tar(args):
@@ -43,9 +46,9 @@ def cmd_build_tar(args):
     c.append(tmpname)
 
     if args.local:
-        c.append("localhost/btrfs-fuzz")
+        c.append(DOCKER_IMAGE_LOCAL)
     else:
-        c.append("dxuu/btrfs-fuzz")
+        c.append(DOCKER_IMAGE_REMOTE)
 
     c.append("/bin/true")
     c.append(")")
@@ -68,9 +71,9 @@ def cmd_run(args):
     c.append(f"-v {sanitize_docker_dir(args.state_dir)}:/state")
 
     if args.local:
-        c.append("localhost/btrfs-fuzz")
+        c.append(DOCKER_IMAGE_LOCAL)
     else:
-        c.append("dxuu/btrfs-fuzz")
+        c.append(DOCKER_IMAGE_REMOTE)
 
     p = pexpect.spawn(" ".join(c))
     p.expect("root@.*#")
@@ -114,9 +117,9 @@ def cmd_shell(args):
         c.append(f"-v {sanitize_docker_dir(args.state_dir)}:/state")
 
     if args.local:
-        c.append("localhost/btrfs-fuzz")
+        c.append(DOCKER_IMAGE_LOCAL)
     else:
-        c.append("dxuu/btrfs-fuzz")
+        c.append(DOCKER_IMAGE_REMOTE)
 
     sh(" ".join(c))
 
@@ -162,9 +165,9 @@ def cmd_repro(args):
     c.append(f"-v {image_dir}:/state")
 
     if args.local:
-        c.append("localhost/btrfs-fuzz")
+        c.append(DOCKER_IMAGE_LOCAL)
     else:
-        c.append("dxuu/btrfs-fuzz")
+        c.append(DOCKER_IMAGE_REMOTE)
 
     p = pexpect.spawn(" ".join(c), encoding="utf-8")
     p.expect("root@.*#")
