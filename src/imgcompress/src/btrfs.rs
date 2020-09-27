@@ -62,13 +62,10 @@ impl<'a> Btrfs<'a> {
         // Save superblock
         //
         // TODO: should we save the other superblocks too?
-        compressed.metadata.push((
+        compressed.mark_as_metadata(
             BTRFS_SUPERBLOCK_OFFSET.try_into()?,
-            BTRFS_SUPERBLOCK_SIZE.try_into()?,
-        ));
-        compressed.data.extend_from_slice(
             &self.image[BTRFS_SUPERBLOCK_OFFSET..(BTRFS_SUPERBLOCK_OFFSET + BTRFS_SUPERBLOCK_SIZE)],
-        );
+        )?;
 
         // Parse everything in the root tree
         self.parse_root_tree(&mut compressed)
@@ -97,10 +94,7 @@ impl<'a> Btrfs<'a> {
             // Store the header b/c it's metadata
             let metadata_size =
                 size_of::<BtrfsHeader>() + (header.nritems as usize * size_of::<BtrfsItem>());
-            compressed
-                .metadata
-                .push((physical, metadata_size.try_into()?));
-            compressed.data.extend_from_slice(&node[..metadata_size]);
+            compressed.mark_as_metadata(physical, &node[..metadata_size])?;
 
             // Now recursively walk the tree
             let items = tree::parse_btrfs_leaf(node)?;
@@ -140,17 +134,11 @@ impl<'a> Btrfs<'a> {
         if header.level == 0 {
             // We're at a leaf: still store the metadata but don't store any payloads
             metadata_size += header.nritems as usize * size_of::<BtrfsItem>();
-            compressed
-                .metadata
-                .push((physical, metadata_size.try_into()?));
-            compressed.data.extend_from_slice(&node[..metadata_size]);
+            compressed.mark_as_metadata(physical, &node[..metadata_size])?;
         } else {
             // We're at an internal node: there's no payload
             metadata_size += header.nritems as usize * size_of::<BtrfsKeyPtr>();
-            compressed
-                .metadata
-                .push((physical, metadata_size.try_into()?));
-            compressed.data.extend_from_slice(&node[..metadata_size]);
+            compressed.mark_as_metadata(physical, &node[..metadata_size])?;
 
             // Recursively visit children
             let ptrs = tree::parse_btrfs_node(node)?;

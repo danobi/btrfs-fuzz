@@ -33,6 +33,16 @@ pub struct CompressedBtrfsImage {
     node_size: usize,
 }
 
+impl CompressedBtrfsImage {
+    /// Mark a range of data as metadata
+    pub(crate) fn mark_as_metadata(&mut self, physical: u64, metadata: &[u8]) -> Result<()> {
+        self.metadata.push((physical, metadata.len().try_into()?));
+        self.data.extend_from_slice(metadata);
+
+        Ok(())
+    }
+}
+
 /// Compress a btrfs image
 pub fn compress(img: &[u8]) -> Result<CompressedBtrfsImage> {
     let btrfs = Btrfs::new(img)?;
