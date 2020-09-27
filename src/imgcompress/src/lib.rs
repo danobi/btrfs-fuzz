@@ -22,7 +22,7 @@ use structs::*;
 #[derive(Deserialize, Serialize, Default)]
 pub struct CompressedBtrfsImage {
     /// Compressed original image. Fuzzed metadata should be laid on top of the original image.
-    pub base: Vec<u8>,
+    base: Vec<u8>,
     /// Vector of (offset, size) tuples>
     ///
     /// For example, if `metadata` contained [(0, 10), (50, 5)], then `data.len()` == 15, where the
