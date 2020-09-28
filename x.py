@@ -95,6 +95,9 @@ def cmd_run(args):
     # with deserializing input so, don't trim.
     c.append("AFL_DISABLE_TRIM=1")
 
+    # Autoresume work
+    c.append("AFL_AUTORESUME=1")
+
     c.append("/usr/local/bin/afl-fuzz")
     c.append("-m 500")
     c.append("-i /state/input")
