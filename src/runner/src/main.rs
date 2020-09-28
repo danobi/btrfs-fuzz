@@ -2,7 +2,7 @@ use std::cmp;
 use std::convert::TryInto;
 use std::fs::OpenOptions;
 use std::io::{self, Read, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 
 use anyhow::{bail, Result};
@@ -31,6 +31,14 @@ struct Opt {
     /// Turn on debug output
     #[structopt(short, long)]
     debug: bool,
+
+    /// File to save current test case into
+    ///
+    /// Useful when the current test case panics the kernel or crashes `runner` (via `BUG()`).
+    /// A management process can pull out the test case and feed it back to `runner` as a
+    /// crashing test.
+    #[structopt(short, long)]
+    current: Option<PathBuf>,
 }
 
 /// Opens kmsg fd and seeks to end.
@@ -87,7 +95,7 @@ fn kmsg_contains_bug(fd: i32) -> Result<bool> {
 /// Get next testcase from AFL and write it into file `into`
 ///
 /// Returns true on success, false on no more input
-fn get_next_testcase<P: AsRef<Path>>(into: P) -> Result<bool> {
+fn get_next_testcase<P: AsRef<Path>>(into: P, current: &Option<PathBuf>) -> Result<bool> {
     let mut buffer = Vec::new();
 
     // AFL feeds inputs via stdin
@@ -96,6 +104,17 @@ fn get_next_testcase<P: AsRef<Path>>(into: P) -> Result<bool> {
     handle.read_to_end(&mut buffer)?;
     if buffer.len() == 0 {
         return Ok(false);
+    }
+
+    // Save current input if requested
+    if let Some(current_path) = current {
+        let mut current = OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .create(true)
+            .open(current_path)?;
+
+        current.write_all(&buffer)?;
     }
 
     // Decompress input
@@ -124,7 +143,7 @@ fn work<P: AsRef<Path>>(mounter: &mut Mounter, image: P) {
 }
 
 fn main() -> Result<()> {
-    let _opts = Opt::from_args();
+    let opts = Opt::from_args();
 
     // Initialize forkserver and handshake with AFL
     let mut forkserver = Forkserver::new()?;
@@ -143,7 +162,7 @@ fn main() -> Result<()> {
         forkserver.new_run()?;
 
         // Now pull the next testcase from AFL and write it to tmpfs
-        if !get_next_testcase(FUZZED_IMAGE_PATH)? {
+        if !get_next_testcase(FUZZED_IMAGE_PATH, &opts.current)? {
             break;
         }
 

@@ -102,7 +102,9 @@ def cmd_run(args):
     c.append("-m 500")
     c.append("-i /state/input")
     c.append("-o /state/output")
-    c.append("-- /btrfs-fuzz/runner")
+    c.append("--")
+    c.append("/btrfs-fuzz/runner")
+    c.append("--current /state/current.imgcompress")
 
     p.expect("root@.*#")
     p.sendline(" ".join(c))
