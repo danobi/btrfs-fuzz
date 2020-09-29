@@ -104,7 +104,7 @@ def cmd_run(args):
     c.append("-o /state/output")
     c.append("--")
     c.append("/btrfs-fuzz/runner")
-    c.append("--current /state/current.imgcompress")
+    c.append("--current-dir /state/current")
 
     p.expect("root@.*#")
     p.sendline(" ".join(c))
@@ -136,6 +136,7 @@ def cmd_seed(args):
 
     pathlib.Path.mkdir(pathlib.Path(f"{args.state_dir}/input"), parents=True)
     pathlib.Path.mkdir(pathlib.Path(f"{args.state_dir}/output"))
+    pathlib.Path.mkdir(pathlib.Path(f"{args.state_dir}/current"))
 
     # Generate raw image
     image_path = pathlib.Path(f"{args.state_dir}/input/image")

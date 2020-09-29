@@ -32,13 +32,18 @@ struct Opt {
     #[structopt(short, long)]
     debug: bool,
 
-    /// File to save current test case into
+    /// Directory to save current test cases into
     ///
     /// Useful when the current test case panics the kernel or crashes `runner` (via `BUG()`).
     /// A management process can pull out the test case and feed it back to `runner` as a
     /// crashing test.
     #[structopt(short, long)]
-    current: Option<PathBuf>,
+    current_dir: Option<PathBuf>,
+    /// Saves the last N test cases into `--current-dir`
+    ///
+    /// Only effective when used with `--current-dir`
+    #[structopt(short = "n", long, default_value = "5")]
+    last_n: u64,
 }
 
 /// Opens kmsg fd and seeks to end.
@@ -95,7 +100,12 @@ fn kmsg_contains_bug(fd: i32) -> Result<bool> {
 /// Get next testcase from AFL and write it into file `into`
 ///
 /// Returns true on success, false on no more input
-fn get_next_testcase<P: AsRef<Path>>(into: P, current: &Option<PathBuf>) -> Result<bool> {
+fn get_next_testcase<P: AsRef<Path>>(
+    into: P,
+    current_dir: &Option<PathBuf>,
+    last_n: u64,
+    count: u64,
+) -> Result<bool> {
     let mut buffer = Vec::new();
 
     // AFL feeds inputs via stdin
@@ -107,12 +117,14 @@ fn get_next_testcase<P: AsRef<Path>>(into: P, current: &Option<PathBuf>) -> Resu
     }
 
     // Save current input if requested
-    if let Some(current_path) = current {
+    if let Some(current_dir) = current_dir {
+        let path = current_dir.as_path().join((count % last_n).to_string());
+
         let mut current = OpenOptions::new()
             .write(true)
             .truncate(true)
             .create(true)
-            .open(current_path)?;
+            .open(path)?;
 
         current.write_all(&buffer)?;
     }
@@ -157,12 +169,14 @@ fn main() -> Result<()> {
     // Create a persistent loopdev to use
     let mut mounter = Mounter::new()?;
 
+    let mut count: u64 = 0;
+
     loop {
         // Tell AFL we want to start a new run
         forkserver.new_run()?;
 
         // Now pull the next testcase from AFL and write it to tmpfs
-        if !get_next_testcase(FUZZED_IMAGE_PATH, &opts.current)? {
+        if !get_next_testcase(FUZZED_IMAGE_PATH, &opts.current_dir, opts.last_n, count)? {
             break;
         }
 
@@ -197,6 +211,8 @@ fn main() -> Result<()> {
         } else {
             forkserver.report(RunStatus::Success)?;
         }
+
+        count += 1;
     }
 
     Ok(())
