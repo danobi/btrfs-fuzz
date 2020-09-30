@@ -40,8 +40,8 @@ def cmd_build_tar(args):
 
     tmpname = "btrfs-fuzz-tmp"
 
-    if args.zstd and not args.file.endswith(".tar.zstd"):
-        args.file = args.file + ".tar.zstd"
+    if args.zstd and not args.file.endswith(".tzst"):
+        args.file = args.file + ".tzst"
     elif not args.file.endswith(".tar"):
         args.file = args.file + ".tar"
 
