@@ -13,6 +13,7 @@ set -eu
 
 if [[ "$#" != 1 ]]; then
   echo 'Usage: validate_crashes.sh DIR' >> /dev/stderr
+  exit 1
 fi
 
 if [[ -v LOCAL ]]; then
