@@ -114,6 +114,16 @@ def cmd_seed(args):
     sh(f"cargo run --bin imgcompress -- compress {image_path} {compressed_image_path}")
     sh(f"rm {image_path}")
 
+    # Write a readme to describe what each directory contains
+    readme_path = pathlib.Path(f"{args.state_dir}/README")
+    with open(readme_path, "w") as f:
+        content = "This directory holds all the state for a fuzzing session.\n\n"
+        content += "Each subdirectory contains as follows:\n\n"
+        content += "current: contains last-n test case images\n"
+        content += "input: afl++ input directory\n"
+        content += "output: afl++ output directory\n"
+        f.write(content)
+
 
 def cmd_repro(args):
     import pexpect
