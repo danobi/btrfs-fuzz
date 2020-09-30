@@ -2,6 +2,8 @@ import sys
 
 import pexpect
 
+FORKSERVER_DEATH = "Unable to communicate with fork server"
+
 
 def get_cmd_env_vars():
     e = []
@@ -92,16 +94,17 @@ class Manager:
             cmd.extend(get_cmd_args())
             self.vm.sendline(" ".join(cmd))
 
-            expected = [self.prompt_regex, "PROGRAM ABORT"]
+            expected = [FORKSERVER_DEATH, self.prompt_regex]
             idx = self.vm.expect(expected, timeout=None)
             if idx == 0:
-                print("Unexpected fuzzer death")
+                print("Detected forkserver death, probably caused by BUG()")
 
                 # TODO: look at last-n log and see if we hit any BUG()s
                 # recently
+                print("TODO handle")
                 break
             elif idx == 1:
-                print("Fuzzer abort detected. Not continuing.")
+                print("Unexpected fuzzer exit. Not continuing.")
                 break
             else:
                 raise RuntimeError(f"Unknown expected idx={idx}")
