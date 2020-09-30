@@ -39,7 +39,10 @@ def cmd_build_tar(args):
     cmd_build(args)
 
     tmpname = "btrfs-fuzz-tmp"
-    if not args.file.endswith(".tar"):
+
+    if args.zstd and not args.file.endswith(".tar.zstd"):
+        args.file = args.file + ".tar.zstd"
+    elif not args.file.endswith(".tar"):
         args.file = args.file + ".tar"
 
     c = ["podman export"]
