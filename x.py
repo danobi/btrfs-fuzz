@@ -55,6 +55,11 @@ def cmd_build_tar(args):
     c.append("/bin/true")
     c.append(")")
 
+    if args.zstd:
+        c.append("|")
+        c.append("zstd")
+
+    # Both `podman export` and zstd take the `-o OUTPUT` flag
     c.append("-o")
     c.append(args.file)
 
@@ -201,6 +206,11 @@ def main():
         "file",
         type=str,
         help="Filename for output tarball",
+    )
+    build_tar.add_argument(
+        "--zstd",
+        action="store_true",
+        help="zstd compress archive",
     )
     build_tar.set_defaults(func=cmd_build_tar)
 
