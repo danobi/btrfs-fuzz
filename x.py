@@ -6,6 +6,8 @@ import pathlib
 import subprocess
 import sys
 
+import src.manager as manager
+
 DOCKER_IMAGE_REMOTE = "dxuu/btrfs-fuzz"
 DOCKER_IMAGE_LOCAL = "localhost/btrfs-fuzz"
 
@@ -61,56 +63,17 @@ def cmd_build_tar(args):
 
 
 def cmd_run(args):
-    import pexpect
-
     print("Starting btrfs-fuzz")
 
-    c = ["podman run"]
-    c.append("-it")
-    c.append("--privileged")
-    c.append(f"-v {sanitize_docker_dir(args.state_dir)}:/state")
-
     if args.local:
-        c.append(DOCKER_IMAGE_LOCAL)
+        img = DOCKER_IMAGE_LOCAL
     else:
-        c.append(DOCKER_IMAGE_REMOTE)
+        img = DOCKER_IMAGE_REMOTE
 
-    p = pexpect.spawn(" ".join(c))
-    p.expect("root@.*#")
-    p.sendline('/bin/bash -c "echo core > /proc/sys/kernel/core_pattern"')
+    state_dir = sanitize_docker_dir(args.state_dir)
 
-    c = []
-    # We didn't build with the afl toolchain so our binary is not watermarked
-    c.append("AFL_SKIP_BIN_CHECK=1")
-
-    # Help debug crashes in our runner
-    c.append("AFL_DEBUG_CHILD_OUTPUT=1")
-
-    # Our custom mutator only fuzzes the FS metadata. Anything else is
-    # ineffective
-    c.append("AFL_CUSTOM_MUTATOR_LIBRARY=/btrfs-fuzz/libmutator.so")
-    c.append("AFL_CUSTOM_MUTATOR_ONLY=1")
-
-    # The custom mutator doesn't append or delete bytes. Trimming also messes
-    # with deserializing input so, don't trim.
-    c.append("AFL_DISABLE_TRIM=1")
-
-    # Autoresume work
-    c.append("AFL_AUTORESUME=1")
-
-    c.append("/usr/local/bin/afl-fuzz")
-    c.append("-m 500")
-    c.append("-i /state/input")
-    c.append("-o /state/output")
-    c.append("--")
-    c.append("/btrfs-fuzz/runner")
-    c.append("--current-dir /state/current")
-
-    p.expect("root@.*#")
-    p.sendline(" ".join(c))
-
-    # Give control back to terminal
-    p.interact()
+    m = manager.Manager(img, state_dir)
+    m.run()
 
 
 def cmd_shell(args):
