@@ -22,7 +22,7 @@ WORKDIR /
 RUN git clone --depth 1 https://github.com/torvalds/linux.git
 WORKDIR linux
 
-COPY scripts/config_kernel.sh config_kernel.sh
+COPY scripts/docker/config_kernel.sh config_kernel.sh
 COPY configs/archlinux.config .config
 RUN chmod +x config_kernel.sh
 RUN ./config_kernel.sh
@@ -73,6 +73,9 @@ WORKDIR /
 RUN mkdir btrfs-fuzz
 WORKDIR btrfs-fuzz
 
+COPY scripts/docker/entry.sh entry.sh
+RUN chmod +x entry.sh
+
 RUN git clone https://github.com/amluto/virtme.git
 
 COPY --from=kernel /linux/arch/x86/boot/bzImage .
@@ -80,4 +83,4 @@ COPY --from=kernel /linux/vmlinux .
 COPY --from=btrfsfuzz /btrfs-fuzz/target/release/runner .
 COPY --from=btrfsfuzz-dy /btrfs-fuzz/target/release/libmutator.so .
 
-ENTRYPOINT ["virtme/virtme-run", "--kimg", "bzImage", "--rw", "--pwd", "--memory", "1024M"]
+ENTRYPOINT ["./entry.sh"]
