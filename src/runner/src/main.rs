@@ -64,7 +64,10 @@ fn open_kmsg() -> Result<i32> {
 
 fn kmsg_contains_bug(fd: i32) -> Result<bool> {
     let mut buf: Vec<u8> = vec![0; 8192];
+    let mut found = false;
 
+    // NB: make sure we consume all the entries in kmsg otherwise the next test might see entries
+    // from the previous run
     loop {
         let n = unsafe { libc::read(fd, (&mut buf).as_mut_ptr() as *mut c_void, buf.len()) };
         match n.cmp(&0) {
@@ -88,13 +91,13 @@ fn kmsg_contains_bug(fd: i32) -> Result<bool> {
                     || line.contains("BUG")
                     || line.contains("WARNING")
                 {
-                    return Ok(true);
+                    found = true;
                 }
             }
         }
     }
 
-    Ok(false)
+    Ok(found)
 }
 
 /// Get next testcase from AFL and write it into file `into`
