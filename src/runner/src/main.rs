@@ -42,7 +42,7 @@ struct Opt {
     /// Saves the last N test cases into `--current-dir`
     ///
     /// Only effective when used with `--current-dir`
-    #[structopt(short = "n", long, default_value = "5")]
+    #[structopt(short = "n", long, default_value = "15")]
     last_n: u64,
 }
 
