@@ -25,7 +25,7 @@ fi
 for f in "$1"/*; do
   echo "Testing ${f}"
   output=$($cmd repro --exit "$f")
-  if echo "$output" | grep -q FAILURE; then
+  if echo "$output" | grep -q -e FAILURE -e BUG; then
     echo -e "\tReproduced failure for ${f}"
   fi
 done
