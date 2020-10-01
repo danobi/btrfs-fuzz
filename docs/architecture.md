@@ -1,7 +1,7 @@
 # Architecture notes
 
 `btrfs-fuzz` runs tests in a VM so we can detect and respond to kernel panics.
-`harness` is responsible for managing the VM and responding appropriately to
+`manager` is responsible for managing the VM and responding appropriately to
 panics.  `AFL++` generates and mutates btrfs images. `runner` runs/tests each
 generated image inside the VM. All tests are run in the same process for better
 fuzzing performance. This is ok b/c btrfs has minimal shared state between

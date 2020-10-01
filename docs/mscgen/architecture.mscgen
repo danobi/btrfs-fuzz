@@ -1,7 +1,7 @@
 // mscgen -T png architecture.mscgen
 
 msc {
-  a [label="harness"],b [label="AFL++"], c [label="runner"];
+  a [label="manager"],b [label="AFL++"], c [label="runner"];
 
   a=>b [label="start QEMU"];
   b=>c [label="start forkserver"];
