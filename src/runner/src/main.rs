@@ -226,6 +226,10 @@ fn main() -> Result<()> {
         work(&mut mounter, FUZZED_IMAGE_PATH);
         let size = kcov.disable()?;
 
+        if opts.debug {
+            println!("{} kcov entries", size);
+        }
+
         // Report edge transitions to AFL
         let coverage = kcov.coverage();
         let shmem = forkserver.shmem();
@@ -243,6 +247,10 @@ fn main() -> Result<()> {
                 shmem[mixed as usize] = u8::MAX;
             } else {
                 shmem[mixed as usize] = val;
+            }
+
+            if opts.debug {
+                println!("kcov entry: 0x{:x}", current_loc);
             }
         }
 
