@@ -2,16 +2,19 @@ use std::cmp;
 use std::convert::TryInto;
 use std::fs::OpenOptions;
 use std::io::{self, Read, Write};
+use std::os::unix::io::AsRawFd;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use libc::c_void;
 use nix::errno::{errno, Errno};
 use nix::fcntl::{open, OFlag};
+use nix::ioctl_write_ptr;
 use nix::sys::stat::Mode;
 use nix::unistd::{lseek, Whence};
 use rmp_serde::decode::from_read_ref;
+use static_assertions::const_assert;
 use structopt::StructOpt;
 
 mod constants;
@@ -24,6 +27,25 @@ use kcov::Kcov;
 use mount::Mounter;
 
 const FUZZED_IMAGE_PATH: &str = "/tmp/btrfsimage";
+
+/// See /usr/include/linux/btrfs.h
+const BTRFS_IOCTL_MAGIC: u8 = 0x94;
+const BTRFS_FORGET_DEV_IOCTL_SEQ: u8 = 5;
+const BTRFS_PATH_NAME_MAX: usize = 4087;
+
+#[repr(C, packed)]
+pub struct BtrfsIoctlVolArgs {
+    fd: i64,
+    name: [u8; BTRFS_PATH_NAME_MAX + 1],
+}
+const_assert!(std::mem::size_of::<BtrfsIoctlVolArgs>() == 4096);
+
+ioctl_write_ptr!(
+    btrfs_forget_dev,
+    BTRFS_IOCTL_MAGIC,
+    BTRFS_FORGET_DEV_IOCTL_SEQ,
+    BtrfsIoctlVolArgs
+);
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "runner", about = "Run btrfs-fuzz test cases")]
@@ -143,6 +165,24 @@ fn get_next_testcase<P: AsRef<Path>>(
     Ok(true)
 }
 
+/// Reset btrfs device cache
+///
+/// Necessary to clean up kernel state between test cases
+fn reset_btrfs_devices() -> Result<()> {
+    let file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open("/dev/btrfs-control")
+        .with_context(|| "Failed to open btrfs control file".to_string())?;
+    let fd = file.as_raw_fd();
+
+    let args: BtrfsIoctlVolArgs = unsafe { std::mem::zeroed() };
+    unsafe { btrfs_forget_dev(fd, &args) }
+        .with_context(|| "Failed to forget btrfs devs".to_string())?;
+
+    Ok(())
+}
+
 /// Test code
 ///
 /// Note how this doesn't return errors. That's because our definition of error is a kernel BUG()
@@ -177,6 +217,9 @@ fn main() -> Result<()> {
         if !get_next_testcase(FUZZED_IMAGE_PATH, &opts.current_dir, opts.last_n, count)? {
             break;
         }
+
+        // Reset kernel state
+        reset_btrfs_devices()?;
 
         // Start coverage collection, do work, then disable collection
         kcov.enable()?;
