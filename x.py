@@ -35,7 +35,7 @@ def cmd_build(args):
 
     if args.local:
         if args.buildah:
-            tool += " build-from-dockerfile"
+            tool += " build-using-dockerfile"
         else:
             tool += " build"
 
