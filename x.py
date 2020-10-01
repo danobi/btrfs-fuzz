@@ -84,6 +84,18 @@ def cmd_run(args):
     m.run()
 
 
+def cmd_run_tar(args):
+    # Must be root to use systemd-nspawn
+    if os.geteuid() != 0:
+        print("run-tar must be run as root")
+        return
+
+    print("Starting btrfs-fuzz")
+
+    m = manager.Manager(args.fsdir, args.state_dir, tar=True)
+    m.run()
+
+
 def cmd_shell(args):
     c = ["podman run"]
     c.append("-it")
@@ -240,6 +252,23 @@ def main():
         "subdirectories, with `input` containing initial test cases.",
     )
     run.set_defaults(func=cmd_run)
+
+    run_tar = subparsers.add_parser("run-tar", help="run fuzzer using systemd-nspawn")
+    run_tar.add_argument(
+        "fsdir",
+        type=str,
+        help="Path to extracted contents of `build-tar`",
+    )
+    run_tar.add_argument(
+        "-s",
+        "--state-dir",
+        type=str,
+        default="./_state",
+        help="Shared state directory between host and VM, mounted in VM at "
+        "/state. The directory must contain `input` and `output` "
+        "subdirectories, with `input` containing initial test cases.",
+    )
+    run_tar.set_defaults(func=cmd_run_tar)
 
     shell = subparsers.add_parser("shell", help="start shell in VM")
     shell.add_argument(

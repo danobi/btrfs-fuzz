@@ -1,3 +1,4 @@
+import os
 import sys
 
 import pexpect
@@ -43,7 +44,7 @@ def get_cmd_args():
     return c
 
 
-def get_vm_args(img, state_dir):
+def get_docker_args(img, state_dir):
     c = []
 
     c.append("podman run")
@@ -55,26 +56,57 @@ def get_vm_args(img, state_dir):
     return c
 
 
+def get_nspawn_args(fsdir, state_dir):
+    c = []
+
+    abs_fsdir_path = os.path.abspath(fsdir)
+
+    c.append("sudo systemd-nspawn")
+    c.append(f"--directory {fsdir}")
+    c.append("--machine btrfs-fuzz")
+    c.append(f"--bind={abs_fsdir_path}:/state")
+    c.append("--chdir=/btrfs-fuzz")
+
+    return c
+
+
 class Manager:
-    def __init__(self, img, state_dir):
+    def __init__(self, img, state_dir, tar=False):
+        """Initialize Manager
+        img: Name of docker image to run
+        state_dir: Path to directory to map into /state inside VM
+        tar: Treat `img` as the path to a untarred filesystem and use systemd-nspawn
+             to start container
+        """
         # Which docker image to use
         self.img = img
 
         # Where the state dir is on host
         self.state_dir = state_dir
 
+        self.tar = tar
+
         self.prompt_regex = "root@.*#"
 
         self.vm = None
 
     def spawn_vm(self):
-        cmd = " ".join(get_vm_args(self.img, self.state_dir))
+        if self.tar:
+            cmd = " ".join(get_nspawn_args(self.img, self.state_dir))
+        else:
+            cmd = " ".join(get_docker_args(self.img, self.state_dir))
+
         self.vm = pexpect.spawn(cmd, encoding="utf-8")
 
         # Pipe everything the child prints to our stdout
         self.vm.logfile_read = sys.stdout
 
         self.vm.expect(self.prompt_regex)
+
+        # For docker images we rely on the ENTRYPOINT directive. For nspawn we
+        # have to do it ourselves
+        if self.tar:
+            self.run_and_wait("./entry.sh")
 
     def run_and_wait(self, cmd):
         """Run a command in the VM and wait until the command completes"""
