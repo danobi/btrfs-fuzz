@@ -86,7 +86,7 @@ class Manager:
         self.spawn_vm()
 
         # Set core pattern
-        self.run_and_wait('/bin/bash -c "echo core > /proc/sys/kernel/core_pattern"')
+        self.run_and_wait("echo core > /proc/sys/kernel/core_pattern")
 
         # Start running fuzzer
         while True:
