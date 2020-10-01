@@ -168,8 +168,6 @@ def cmd_repro(args):
     c = []
     c.append("/btrfs-fuzz/runner")
     c.append(f"< /state/{image_fname}")
-    # Give some time for dmesg to catch up
-    c.append(f"; sleep 5")
 
     p.expect("root@.*#")
 
