@@ -132,7 +132,7 @@ fn get_next_testcase<P: AsRef<Path>>(
     let stdin = io::stdin();
     let mut handle = stdin.lock();
     handle.read_to_end(&mut buffer)?;
-    if buffer.len() == 0 {
+    if buffer.is_empty() {
         return Ok(false);
     }
 
