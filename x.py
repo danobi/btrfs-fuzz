@@ -28,10 +28,15 @@ def sanitize_docker_dir(dir):
 
 
 def cmd_build(args):
-    if args.local:
-        sh("podman build -t btrfs-fuzz .")
+    if args.buildah:
+        tool = "buildah"
     else:
-        sh(f"podman pull {DOCKER_IMAGE_REMOTE}")
+        tool = "podman"
+
+    if args.local:
+        sh(f"{tool} build -t btrfs-fuzz .")
+    else:
+        sh(f"{tool} pull {DOCKER_IMAGE_REMOTE}")
 
 
 def cmd_build_tar(args):
@@ -223,6 +228,12 @@ def main():
     subparsers = parser.add_subparsers(help="subcommands")
 
     build = subparsers.add_parser("build", help="build btrfs-fuzz components")
+    build.add_argument(
+        "-b",
+        "--buildah",
+        action="store_true",
+        help="Use buildah to build image",
+    )
     build.set_defaults(func=cmd_build)
 
     build_tar = subparsers.add_parser(
@@ -242,6 +253,12 @@ def main():
         "--no-build",
         action="store_true",
         help="Do not rebuild image if stale",
+    )
+    build_tar.add_argument(
+        "-b",
+        "--buildah",
+        action="store_true",
+        help="Use buildah to build image",
     )
     build_tar.set_defaults(func=cmd_build_tar)
 
