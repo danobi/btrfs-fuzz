@@ -36,7 +36,8 @@ def cmd_build(args):
 
 def cmd_build_tar(args):
     # First build the latest image
-    cmd_build(args)
+    if not args.no_build:
+        cmd_build(args)
 
     tmpname = "btrfs-fuzz-tmp"
 
@@ -226,6 +227,11 @@ def main():
         "--zstd",
         action="store_true",
         help="zstd compress archive",
+    )
+    build_tar.add_argument(
+        "--no-build",
+        action="store_true",
+        help="Do not rebuild image if stale",
     )
     build_tar.set_defaults(func=cmd_build_tar)
 
