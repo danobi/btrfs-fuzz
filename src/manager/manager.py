@@ -69,6 +69,9 @@ def get_nspawn_args(fsdir, state_dir):
     c.append(f"--bind={abs_state_dir}:/state")
     c.append("--chdir=/btrfs-fuzz")
 
+    # Map into the container /dev/kvm so qemu can run faster
+    c.append(f"--bind=/dev/kvm:/dev/kvm")
+
     return c
 
 
