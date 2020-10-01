@@ -34,7 +34,12 @@ def cmd_build(args):
         tool = "podman"
 
     if args.local:
-        sh(f"{tool} build -t btrfs-fuzz .")
+        if args.buildah:
+            tool += " build-from-dockerfile"
+        else:
+            tool += " build"
+
+        sh(f"{tool} -t btrfs-fuzz .")
     else:
         sh(f"{tool} pull {DOCKER_IMAGE_REMOTE}")
 
