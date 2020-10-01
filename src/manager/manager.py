@@ -109,12 +109,16 @@ class Manager:
         # For docker images we rely on the ENTRYPOINT directive. For nspawn we
         # have to do it ourselves
         if self.nspawn:
-            self.run_and_wait("./entry.sh")
+            self.run_and_wait("./entry.sh", disable_timeout=True)
 
-    def run_and_wait(self, cmd):
+    def run_and_wait(self, cmd, disable_timeout=False):
         """Run a command in the VM and wait until the command completes"""
         self.vm.sendline(cmd)
-        self.vm.expect(self.prompt_regex)
+
+        if disable_timeout:
+            self.vm.expect(self.prompt_regex, timeout=None)
+        else:
+            self.vm.expect(self.prompt_regex)
 
     def run(self):
         # Start the VM (could take a few seconds)
