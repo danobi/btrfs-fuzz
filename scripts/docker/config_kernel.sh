@@ -108,14 +108,6 @@ find fs/btrfs -name Makefile \
 # Build loop module in-kernel
 ./scripts/config -e BLK_DEV_LOOP
 
-# Enable btrfs checks
-./scripts/config \
-    -e BTRFS_FS_CHECK_INTEGRITY \
-    -e BTRFS_FS_RUN_SANITY_TESTS \
-    -e BTRFS_DEBUG \
-    -e BTRFS_ASSERT \
-    -e BTRFS_FS_REF_VERIFY
-
 # Disable BTF to reduce build dependencies
 ./scripts/config -d DEBUG_INFO_BTF
 
