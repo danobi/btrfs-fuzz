@@ -254,8 +254,10 @@ class Manager:
             threads = []
             for i in range(nr_cpus):
                 if i == 0:
+                    name = f"btrfs-fuzz-{MASTER_NAME}"
                     vm = self.prep_one(master=True)
                 else:
+                    name = f"btrfs-fuzz-{get_secondary_name(i)}"
                     vm = self.prep_one(secondary=i)
 
                 t = threading.Thread(target=lambda x: x.run(), args=(vm,), name=name)
@@ -268,7 +270,7 @@ class Manager:
             while True:
                 for t in threads:
                     if not t.is_alive():
-                        print("{t.name} unexpectedly died. Exiting now.")
+                        print(f"Thread={t.name} unexpectedly died. Exiting now.")
                         break
 
                 time.sleep(1)
