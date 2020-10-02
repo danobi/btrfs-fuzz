@@ -6,6 +6,11 @@ import uuid
 import pexpect
 
 FORKSERVER_DEATH = "Unable to communicate with fork server"
+MASTER_NAME = "master"
+
+
+def get_secondary_name(idx):
+    return f"secondary_{idx}"
 
 
 def get_cmd_env_vars():
@@ -55,10 +60,10 @@ def get_cmd_args(master=False, secondary=None):
     # See bottom of
     # https://github.com/AFLplusplus/AFLplusplus/blob/stable/docs/power_schedules.md
     if master:
-        c.append("-M master")
+        c.append(f"-M {MASTER_NAME}")
         c.append("-p exploit")
     elif secondary is not None:
-        c.append(f"-S secondary_{secondary}")
+        c.append(f"-S {get_secondary_name(secondary)}")
 
         AFL_SECONDARY_SCHEDULES = ["coe", "fast", "explore"]
         idx = secondary % len(AFL_SECONDARY_SCHEDULES)
@@ -102,6 +107,77 @@ def get_nspawn_args(fsdir, state_dir):
     return c
 
 
+class VM:
+    """One virtual machine instance"""
+
+    def __init__(self, p, args, needs_vm_entry=False, name=None):
+        """Initialize VM
+        p: An already spawned `pexpect.spawn` VM instance. Nothing should be
+           running in the VM yet.
+        args: Arguments to invoke AFL (string)
+        needs_vm_entry: If true, the container has been entered but the VM has
+                        not been spawned yet. Pass true to also run ./entry.sh
+        name: Name of the VM instance. Only needs to be specified if running
+              multiple VMs (ie parallel mode)
+        """
+        self.vm = p
+        self.args = args
+        self.needs_vm_entry = needs_vm_entry
+        self.name = name
+        self.prompt_regex = "root@.*#"
+
+    def run_and_wait(self, cmd, disable_timeout=False):
+        """Run a command in the VM and wait until the command completes"""
+        self.vm.sendline(cmd)
+
+        if disable_timeout:
+            self.vm.expect(self.prompt_regex, timeout=None)
+        else:
+            self.vm.expect(self.prompt_regex)
+
+    def handle_fuzzer_crash(self):
+        """Handle a recoverable fuzzer crash
+
+        A recoverable crash is when either the VM dies or the fuzzer is killed
+        by a kernel BUG(). When this happens, mark the current test case as
+        a known crash so the runner can avoid it in the future.
+        """
+        if self.name is not None:
+            state_dir = f"/state/output/{self.name}"
+        else:
+            state_dir = "/state/output"
+
+        cur_input = os.path.abspath(f"{state_dir}/.cur_input")
+        dest = os.path.abspath(f"/state/known_crashes/{uuid.uuid4()}")
+        shutil.copy(cur_input, dest)
+
+    def run(self):
+        # `self.p` should not have been `expect()`d upon yet so we need to wait
+        # until a prompt is ready
+        self.vm.expect(self.prompt_regex)
+
+        if self.needs_vm_entry:
+            self.run_and_wait("./entry.sh", disable_timeout=True)
+
+        # Set core pattern
+        self.run_and_wait("echo core > /proc/sys/kernel/core_pattern")
+
+        # Start running fuzzer
+        while True:
+            self.vm.sendline(self.args)
+
+            expected = [FORKSERVER_DEATH, self.prompt_regex]
+            idx = self.vm.expect(expected, timeout=None)
+            if idx == 0:
+                print("Detected forkserver death, probably caused by BUG()")
+                self.handle_fuzzer_crash()
+            elif idx == 1:
+                print("Unexpected fuzzer exit. Not continuing.")
+                break
+            else:
+                raise RuntimeError(f"Unknown expected idx={idx}")
+
+
 class Manager:
     def __init__(self, img, state_dir, nspawn=False, parallel=False):
         """Initialize Manager
@@ -120,72 +196,56 @@ class Manager:
         self.nspawn = nspawn
         self.parallel = parallel
 
-        self.prompt_regex = "root@.*#"
-
         self.vm = None
 
     def spawn_vm(self):
+        """Spawn a single VM
+
+        Returns a `pexpect.spawn` instance
+        """
         if self.nspawn:
             args = get_nspawn_args(self.img, self.state_dir)
         else:
             args = get_docker_args(self.img, self.state_dir)
         cmd = " ".join(args)
 
-        self.vm = pexpect.spawn(cmd, encoding="utf-8")
+        p = pexpect.spawn(cmd, encoding="utf-8")
 
         # Pipe everything the child prints to our stdout
-        self.vm.logfile_read = sys.stdout
+        p.logfile_read = sys.stdout
 
-        self.vm.expect(self.prompt_regex)
+        return p
+
+    def run_one(self, master=False, secondary=None):
+        """Run one fuzzer instance
+
+        master: If true, spawn the master instance
+        secondary: If specified, the integer number of the secondary instance
+
+        Does not return unless there's an error
+        """
+        # Start the VM (could take a few seconds)
+        p = self.spawn_vm()
 
         # For docker images we rely on the ENTRYPOINT directive. For nspawn we
         # have to do it ourselves
         if self.nspawn:
-            self.run_and_wait("./entry.sh", disable_timeout=True)
-
-    def run_and_wait(self, cmd, disable_timeout=False):
-        """Run a command in the VM and wait until the command completes"""
-        self.vm.sendline(cmd)
-
-        if disable_timeout:
-            self.vm.expect(self.prompt_regex, timeout=None)
+            needs_vm_entry = True
         else:
-            self.vm.expect(self.prompt_regex)
+            needs_vm_entry = False
 
-    def handle_fuzzer_crash(self):
-        """Handle a recoverable fuzzer crash
+        cmd = get_cmd_env_vars()
+        cmd.extend(get_cmd_args(master, secondary))
 
-        A recoverable crash is when either the VM dies or the fuzzer is killed
-        by a kernel BUG(). When this happens, mark the current test case as
-        a known crash so the runner can avoid it in the future.
-        """
-        cur_input = os.path.abspath(f"{self.state_dir}/output/.cur_input")
-        dest = os.path.abspath(f"{self.state_dir}/known_crashes/{uuid.uuid4()}")
-        shutil.copy(cur_input, dest)
+        if master:
+            name = MASTER_NAME
+        elif secondary is not None:
+            name = get_secondary_name(secondary)
+        else:
+            name = None
 
-    def run_one(self):
-        # Start the VM (could take a few seconds)
-        self.spawn_vm()
-
-        # Set core pattern
-        self.run_and_wait("echo core > /proc/sys/kernel/core_pattern")
-
-        # Start running fuzzer
-        while True:
-            cmd = get_cmd_env_vars()
-            cmd.extend(get_cmd_args())
-            self.vm.sendline(" ".join(cmd))
-
-            expected = [FORKSERVER_DEATH, self.prompt_regex]
-            idx = self.vm.expect(expected, timeout=None)
-            if idx == 0:
-                print("Detected forkserver death, probably caused by BUG()")
-                self.handle_fuzzer_crash()
-            elif idx == 1:
-                print("Unexpected fuzzer exit. Not continuing.")
-                break
-            else:
-                raise RuntimeError(f"Unknown expected idx={idx}")
+        vm = VM(p, " ".join(cmd), needs_vm_entry=needs_vm_entry, name=name)
+        vm.run()
 
     def run(self):
         self.run_one()
