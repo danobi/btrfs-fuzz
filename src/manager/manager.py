@@ -78,12 +78,13 @@ def get_nspawn_args(fsdir, state_dir):
 
 
 class Manager:
-    def __init__(self, img, state_dir, nspawn=False):
+    def __init__(self, img, state_dir, nspawn=False, parallel=False):
         """Initialize Manager
         img: Name of docker image to run
         state_dir: Path to directory to map into /state inside VM
         nspawn: Treat `img` as the path to a untarred filesystem and use systemd-nspawn
              to start container
+        parallel: Run distributed fuzzing instances on # CPUs the host has
         """
         # Which docker image to use
         self.img = img
@@ -92,6 +93,7 @@ class Manager:
         self.state_dir = state_dir
 
         self.nspawn = nspawn
+        self.parallel = parallel
 
         self.prompt_regex = "root@.*#"
 
@@ -136,7 +138,7 @@ class Manager:
         dest = os.path.abspath(f"{self.state_dir}/known_crashes/{uuid.uuid4()}")
         shutil.copy(cur_input, dest)
 
-    def run(self):
+    def run_one(self):
         # Start the VM (could take a few seconds)
         self.spawn_vm()
 
@@ -159,3 +161,6 @@ class Manager:
                 break
             else:
                 raise RuntimeError(f"Unknown expected idx={idx}")
+
+    def run(self):
+        self.run_one()
