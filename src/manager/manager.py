@@ -271,7 +271,7 @@ class Manager:
                 for t in threads:
                     if not t.is_alive():
                         print(f"Thread={t.name} unexpectedly died. Exiting now.")
-                        break
+                        return
 
                 time.sleep(1)
         else:
