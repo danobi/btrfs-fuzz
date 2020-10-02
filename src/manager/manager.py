@@ -1,5 +1,6 @@
 import asyncio
 import os
+import signal
 import shutil
 import sys
 import threading
@@ -84,6 +85,7 @@ def get_docker_args(img, state_dir):
 
     c.append("podman run")
     c.append("-it")
+    c.append("--rm")
     c.append("--privileged")
     c.append(f"-v {state_dir}:/state")
     c.append(img)
@@ -153,7 +155,7 @@ class VM:
         dest = os.path.abspath(f"/state/known_crashes/{uuid.uuid4()}")
         shutil.copy(cur_input, dest)
 
-    async def run(self):
+    async def _run(self):
         # `self.p` should not have been `expect()`d upon yet so we need to wait
         # until a prompt is ready
         await self.vm.expect(self.prompt_regex, async_=True)
@@ -178,6 +180,14 @@ class VM:
                 break
             else:
                 raise RuntimeError(f"Unknown expected idx={idx}")
+
+    async def run(self):
+        try:
+            await self._run()
+        except asyncio.CancelledError:
+            pid = self.vm.pid
+            print(f"Sending SIGKILL to all pids in pid={pid} tree")
+            os.system(f"pkill -KILL -P {pid}")
 
 
 class Manager:
@@ -277,10 +287,7 @@ class Manager:
             if exit:
                 # Cancel all the outstanding tasks so we don't leak VMs
                 for t in [t for t in tasks if not t.done()]:
-                    try:
-                        t.cancel()
-                    except asyncio.CancelledError:
-                        pass
+                    t.cancel()
 
                 print("All other tasks cancelled")
 
@@ -296,6 +303,7 @@ class Manager:
             await asyncio.sleep(1)
 
     async def _run(self):
+
         nr_cpus = len(os.sched_getaffinity(0))
 
         if self.parallel and nr_cpus > 1:
@@ -304,4 +312,17 @@ class Manager:
             await self.prep_one().run()
 
     def run(self):
-        asyncio.run(self._run())
+        def cancel_all_tasks():
+            for t in asyncio.all_tasks():
+                t.cancel()
+
+        # If we don't cancel the outstanding tasks, the containers leak
+        loop = asyncio.get_event_loop()
+        loop.add_signal_handler(signal.SIGINT, cancel_all_tasks)
+        loop.add_signal_handler(signal.SIGTERM, cancel_all_tasks)
+        loop.add_signal_handler(signal.SIGHUP, cancel_all_tasks)
+
+        try:
+            loop.run_until_complete(self._run())
+        except asyncio.CancelledError:
+            pass
