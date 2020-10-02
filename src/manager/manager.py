@@ -32,13 +32,38 @@ def get_cmd_env_vars():
     return e
 
 
-def get_cmd_args():
+def get_cmd_args(master=False, secondary=None):
+    """Get arguments to invoke AFL with
+
+    Note `master` and `secondary` cannot both be specified.
+
+    master: If true, get arguments for parallel fuzzing master node
+    secondary: If specified, the integer value is the secondary instance number.
+               This function will then return arguments for parallel fuzzing
+               secondary node.
+    """
+    if master and secondary is not None:
+        raise RuntimeError("Cannot specify both master and secondary arguments")
+
     c = []
 
     c.append("/usr/local/bin/afl-fuzz")
     c.append("-m 500")
     c.append("-i /state/input")
     c.append("-o /state/output")
+
+    # See bottom of
+    # https://github.com/AFLplusplus/AFLplusplus/blob/stable/docs/power_schedules.md
+    if master:
+        c.append("-M master")
+        c.append("-p exploit")
+    elif secondary is not None:
+        c.append(f"-S secondary_{secondary}")
+
+        AFL_SECONDARY_SCHEDULES = ["coe", "fast", "explore"]
+        idx = secondary % len(AFL_SECONDARY_SCHEDULES)
+        c.append(f"-p {AFL_SECONDARY_SCHEDULES[idx]}")
+
     c.append("--")
     c.append("/btrfs-fuzz/runner")
     c.append("--current-dir /state/current")
