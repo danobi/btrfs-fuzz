@@ -258,9 +258,7 @@ class Manager:
                 else:
                     vm = self.prep_one(secondary=i)
 
-                t = threading.Thread(
-                    target=lambda x: x.run, args=(vm,), name=f"btrfs-fuzz-thread-{i}"
-                )
+                t = threading.Thread(target=lambda x: x.run(), args=(vm,), name=name)
                 t.start()
                 threads.append(t)
 
