@@ -71,7 +71,6 @@ def get_cmd_args(master=False, secondary=None):
 
     c.append("--")
     c.append("/btrfs-fuzz/runner")
-    c.append("--current-dir /state/current")
     c.append("--known-crash-dir /state/known_crashes")
 
     return c
