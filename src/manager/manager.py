@@ -1,3 +1,4 @@
+import asyncio
 import os
 import shutil
 import sys
@@ -127,14 +128,14 @@ class VM:
         self.name = name
         self.prompt_regex = "root@.*#"
 
-    def run_and_wait(self, cmd, disable_timeout=False):
+    async def run_and_wait(self, cmd, disable_timeout=False):
         """Run a command in the VM and wait until the command completes"""
         self.vm.sendline(cmd)
 
         if disable_timeout:
-            self.vm.expect(self.prompt_regex, timeout=None)
+            self.vm.expect(self.prompt_regex, timeout=None, async_=True)
         else:
-            self.vm.expect(self.prompt_regex)
+            self.vm.expect(self.prompt_regex, async_=True)
 
     def handle_fuzzer_crash(self):
         """Handle a recoverable fuzzer crash
@@ -152,23 +153,23 @@ class VM:
         dest = os.path.abspath(f"/state/known_crashes/{uuid.uuid4()}")
         shutil.copy(cur_input, dest)
 
-    def run(self):
+    async def run(self):
         # `self.p` should not have been `expect()`d upon yet so we need to wait
         # until a prompt is ready
-        self.vm.expect(self.prompt_regex)
+        await self.vm.expect(self.prompt_regex, async_=True)
 
         if self.needs_vm_entry:
-            self.run_and_wait("./entry.sh", disable_timeout=True)
+            await self.run_and_wait("./entry.sh", disable_timeout=True)
 
         # Set core pattern
-        self.run_and_wait("echo core > /proc/sys/kernel/core_pattern")
+        await self.run_and_wait("echo core > /proc/sys/kernel/core_pattern")
 
         # Start running fuzzer
         while True:
             self.vm.sendline(self.args)
 
             expected = [FORKSERVER_DEATH, self.prompt_regex]
-            idx = self.vm.expect(expected, timeout=None)
+            idx = self.vm.expect(expected, timeout=None, async_=True)
             if idx == 0:
                 print("Detected forkserver death, probably caused by BUG()")
                 self.handle_fuzzer_crash()
@@ -247,32 +248,60 @@ class Manager:
 
         return VM(p, " ".join(cmd), needs_vm_entry=needs_vm_entry, name=name)
 
-    def run(self):
+    async def run_parallel(self, nr_cpus):
+        tasks = []
+        for i in range(nr_cpus):
+            if i == 0:
+                name = f"btrfs-fuzz-{MASTER_NAME}"
+                vm = self.prep_one(master=True)
+            else:
+                name = f"btrfs-fuzz-{get_secondary_name(i)}"
+                vm = self.prep_one(secondary=i)
+
+            t = asyncio.create_task(vm.run(), name=name)
+            tasks.append(t)
+
+        # Now manage all the running tasks -- if any die, we'll error out
+        # for now. In the future we should log the crash and respawn the
+        # thread.
+        while True:
+            triggering_task = None
+            exit = False
+            for t in tasks:
+                if t.done():
+                    print(f"Task={t.get_name()} unexpectedly exited. Exiting now.")
+                    triggering_task = t
+                    exit = True
+                    break
+
+            if exit:
+                # Cancel all the outstanding tasks so we don't leak VMs
+                for t in [t for t in tasks if not t.done()]:
+                    try:
+                        t.cancel()
+                    except asyncio.CancelledError:
+                        pass
+
+                print("All other tasks cancelled")
+
+                # Print out stacktrace from task that triggered the exit
+                t = triggering_task
+                exc = t.exception()
+                if exc:
+                    print(f"Exception from {t.get_name()}: {exc}")
+                    t.print_stack()
+
+                break
+
+            await asyncio.sleep(1)
+
+    async def _run(self):
         nr_cpus = len(os.sched_getaffinity(0))
 
         if self.parallel and nr_cpus > 1:
-            threads = []
-            for i in range(nr_cpus):
-                if i == 0:
-                    name = f"btrfs-fuzz-{MASTER_NAME}"
-                    vm = self.prep_one(master=True)
-                else:
-                    name = f"btrfs-fuzz-{get_secondary_name(i)}"
-                    vm = self.prep_one(secondary=i)
-
-                t = threading.Thread(target=lambda x: x.run(), args=(vm,), name=name)
-                t.start()
-                threads.append(t)
-
-            # Now manage all the running threads -- if any die, we'll error out
-            # for now. In the future we should log the crash and respawn the
-            # thread.
-            while True:
-                for t in threads:
-                    if not t.is_alive():
-                        print(f"Thread={t.name} unexpectedly died. Exiting now.")
-                        return
-
-                time.sleep(1)
+            await self.run_parallel(nr_cpus)
         else:
             self.prep_one().run()
+
+    def run(self):
+        asyncio.run(self._run())
