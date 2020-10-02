@@ -9,6 +9,7 @@ __pycache__/
 
 _state
 _confirmed
+fs/
 
 .#*
 .tags*
