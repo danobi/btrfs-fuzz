@@ -1,5 +1,7 @@
 import os
+import shutil
 import sys
+import uuid
 
 import pexpect
 
@@ -122,6 +124,17 @@ class Manager:
         else:
             self.vm.expect(self.prompt_regex)
 
+    def handle_fuzzer_crash(self):
+        """Handle a recoverable fuzzer crash
+
+        A recoverable crash is when either the VM dies or the fuzzer is killed
+        by a kernel BUG(). When this happens, mark the current test case as
+        a known crash so the runner can avoid it in the future.
+        """
+        cur_input = os.path.abspath(f"{self.state_dir}/output/.cur_input")
+        dest = os.path.abspath(f"{self.state_dir}/known_crashes/{uuid.uuid4()}")
+        shutil.copy(cur_input, dest)
+
     def run(self):
         # Start the VM (could take a few seconds)
         self.spawn_vm()
@@ -139,11 +152,7 @@ class Manager:
             idx = self.vm.expect(expected, timeout=None)
             if idx == 0:
                 print("Detected forkserver death, probably caused by BUG()")
-
-                # TODO: look at last-n log and see if we hit any BUG()s
-                # recently
-                print("TODO handle")
-                break
+                self.handle_fuzzer_crash()
             elif idx == 1:
                 print("Unexpected fuzzer exit. Not continuing.")
                 break
