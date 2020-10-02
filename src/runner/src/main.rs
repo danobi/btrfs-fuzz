@@ -187,9 +187,15 @@ fn reset_btrfs_devices() -> Result<()> {
 ///
 /// Note how this doesn't return errors. That's because our definition of error is a kernel BUG()
 /// or panic. We expect that some operations here fail (such as mount(2))
-fn work<P: AsRef<Path>>(mounter: &mut Mounter, image: P) {
-    // The `_` is an immediate drop after creation
-    let _ = mounter.mount(image.as_ref(), "/mnt/btrfs");
+fn work<P: AsRef<Path>>(mounter: &mut Mounter, image: P, debug: bool) {
+    let r = mounter.mount(image.as_ref(), "/mnt/btrfs");
+
+    if debug {
+        match r {
+            Ok(_) => (),
+            Err(e) => println!("Mount error: {}", e),
+        }
+    }
 }
 
 fn main() -> Result<()> {
@@ -223,7 +229,7 @@ fn main() -> Result<()> {
 
         // Start coverage collection, do work, then disable collection
         kcov.enable()?;
-        work(&mut mounter, FUZZED_IMAGE_PATH);
+        work(&mut mounter, FUZZED_IMAGE_PATH, opts.debug);
         let size = kcov.disable()?;
 
         if opts.debug {
