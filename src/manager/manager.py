@@ -1,6 +1,8 @@
 import os
 import shutil
 import sys
+import threading
+import time
 import uuid
 
 import pexpect
@@ -215,13 +217,13 @@ class Manager:
 
         return p
 
-    def run_one(self, master=False, secondary=None):
+    def prep_one(self, master=False, secondary=None):
         """Run one fuzzer instance
 
         master: If true, spawn the master instance
         secondary: If specified, the integer number of the secondary instance
 
-        Does not return unless there's an error
+        Returns a `VM` instance
         """
         # Start the VM (could take a few seconds)
         p = self.spawn_vm()
@@ -243,8 +245,34 @@ class Manager:
         else:
             name = None
 
-        vm = VM(p, " ".join(cmd), needs_vm_entry=needs_vm_entry, name=name)
-        vm.run()
+        return VM(p, " ".join(cmd), needs_vm_entry=needs_vm_entry, name=name)
 
     def run(self):
-        self.run_one()
+        nr_cpus = len(os.sched_getaffinity(0))
+
+        if self.parallel and nr_cpus > 1:
+            threads = []
+            for i in range(nr_cpus):
+                if i == 0:
+                    vm = self.prep_one(master=True)
+                else:
+                    vm = self.prep_one(secondary=i)
+
+                t = threading.Thread(
+                    target=lambda x: x.run, args=(vm,), name=f"btrfs-fuzz-thread-{i}"
+                )
+                t.start()
+                threads.append(t)
+
+            # Now manage all the running threads -- if any die, we'll error out
+            # for now. In the future we should log the crash and respawn the
+            # thread.
+            while True:
+                for t in threads:
+                    if not t.is_alive():
+                        print("{t.name} unexpectedly died. Exiting now.")
+                        break
+
+                time.sleep(1)
+        else:
+            self.prep_one().run()
