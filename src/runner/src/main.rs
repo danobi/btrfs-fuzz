@@ -1,6 +1,8 @@
 use std::cmp;
+use std::collections::hash_map::DefaultHasher;
 use std::convert::TryInto;
-use std::fs::OpenOptions;
+use std::fs::{read_dir, OpenOptions};
+use std::hash::Hasher;
 use std::io::{self, Read, Write};
 use std::os::unix::io::AsRawFd;
 use std::path::{Path, PathBuf};
@@ -47,6 +49,12 @@ ioctl_write_ptr!(
     BtrfsIoctlVolArgs
 );
 
+enum TestcaseStatus {
+    Ok,
+    NoMore,
+    KnownCrash,
+}
+
 #[derive(Debug, StructOpt)]
 #[structopt(name = "runner", about = "Run btrfs-fuzz test cases")]
 struct Opt {
@@ -66,6 +74,13 @@ struct Opt {
     /// Only effective when used with `--current-dir`
     #[structopt(short = "n", long, default_value = "15")]
     last_n: u64,
+    /// Directory containing known crashes.
+    ///
+    /// On startup, runner will keep a table of hashes for each of the files in this directory.
+    /// If runner receives an input that matches any of the hashes, runner will report a crash
+    /// to AFL.
+    #[structopt(short, long)]
+    known_crash_dir: Option<PathBuf>,
 }
 
 /// Opens kmsg fd and seeks to end.
@@ -117,6 +132,14 @@ fn kmsg_contains_bug(fd: i32) -> Result<bool> {
     Ok(found)
 }
 
+fn is_known_crash(input: &[u8], known_crashes: &[u64]) -> bool {
+    let mut hasher = DefaultHasher::new();
+    hasher.write(&input);
+    let hash = hasher.finish();
+
+    known_crashes.iter().any(|&x| x == hash)
+}
+
 /// Get next testcase from AFL and write it into file `into`
 ///
 /// Returns true on success, false on no more input
@@ -125,7 +148,8 @@ fn get_next_testcase<P: AsRef<Path>>(
     current_dir: &Option<PathBuf>,
     last_n: u64,
     count: u64,
-) -> Result<bool> {
+    known_crashes: &[u64],
+) -> Result<TestcaseStatus> {
     let mut buffer = Vec::new();
 
     // AFL feeds inputs via stdin
@@ -133,7 +157,11 @@ fn get_next_testcase<P: AsRef<Path>>(
     let mut handle = stdin.lock();
     handle.read_to_end(&mut buffer)?;
     if buffer.is_empty() {
-        return Ok(false);
+        return Ok(TestcaseStatus::NoMore);
+    }
+
+    if is_known_crash(&buffer, known_crashes) {
+        return Ok(TestcaseStatus::KnownCrash);
     }
 
     // Save current input if requested
@@ -162,7 +190,7 @@ fn get_next_testcase<P: AsRef<Path>>(
 
     file.write_all(&image)?;
 
-    Ok(true)
+    Ok(TestcaseStatus::Ok)
 }
 
 /// Reset btrfs device cache
@@ -181,6 +209,28 @@ fn reset_btrfs_devices() -> Result<()> {
         .with_context(|| "Failed to forget btrfs devs".to_string())?;
 
     Ok(())
+}
+
+/// Load known crashes
+fn load_known_crashes(dir: &PathBuf) -> Result<Vec<u64>> {
+    let mut ret = Vec::new();
+
+    for entry in read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        let mut file = OpenOptions::new().read(true).open(path)?;
+
+        let mut buffer = Vec::new();
+        file.read_to_end(&mut buffer)?;
+
+        let mut hasher = DefaultHasher::new();
+        hasher.write(&buffer);
+        ret.push(hasher.finish());
+    }
+
+    println!("Loaded {} known crashes", ret.len());
+
+    Ok(ret)
 }
 
 /// Test code
@@ -213,6 +263,12 @@ fn main() -> Result<()> {
     // Create a persistent loopdev to use
     let mut mounter = Mounter::new()?;
 
+    // Load known crashes so we don't keep crashing on the same entry over and over
+    let known_crashes = match opts.known_crash_dir {
+        Some(d) => load_known_crashes(&d)?,
+        None => Vec::new(),
+    };
+
     let mut count: u64 = 0;
 
     loop {
@@ -220,9 +276,20 @@ fn main() -> Result<()> {
         forkserver.new_run()?;
 
         // Now pull the next testcase from AFL and write it to tmpfs
-        if !get_next_testcase(FUZZED_IMAGE_PATH, &opts.current_dir, opts.last_n, count)? {
-            break;
-        }
+        match get_next_testcase(
+            FUZZED_IMAGE_PATH,
+            &opts.current_dir,
+            opts.last_n,
+            count,
+            &known_crashes,
+        )? {
+            TestcaseStatus::Ok => (),
+            TestcaseStatus::NoMore => break,
+            TestcaseStatus::KnownCrash => {
+                forkserver.report(RunStatus::Failure)?;
+                continue;
+            }
+        };
 
         // Reset kernel state
         reset_btrfs_devices()?;
@@ -271,4 +338,30 @@ fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+#[test]
+fn test_known_crash() {
+    use std::fs::File;
+    use tempfile::tempdir;
+
+    let dir = tempdir().expect("failed to create temporary dir");
+
+    for i in 0..10 {
+        let file_path = dir.path().join(format!("{}", i));
+        let mut file = File::create(file_path).expect("failed to create temporary file");
+        write!(file, "content {}", i).expect("failed to write to file");
+    }
+
+    let known_crashes =
+        load_known_crashes(&dir.path().to_path_buf()).expect("failed to load known crashes");
+
+    for i in 0..10 {
+        let contents = format!("content {}", i);
+        assert!(is_known_crash(contents.as_bytes(), &known_crashes));
+    }
+
+    assert!(!is_known_crash("asdf".as_bytes(), &known_crashes));
+    assert!(!is_known_crash("content".as_bytes(), &known_crashes));
+    assert!(!is_known_crash("".as_bytes(), &known_crashes));
 }

@@ -424,6 +424,7 @@ dependencies = [
  "static_assertions",
  "structopt",
  "sys-mount",
+ "tempfile",
 ]
 
 [[package]]
