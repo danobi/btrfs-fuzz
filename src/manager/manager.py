@@ -133,9 +133,9 @@ class VM:
         self.vm.sendline(cmd)
 
         if disable_timeout:
-            self.vm.expect(self.prompt_regex, timeout=None, async_=True)
+            await self.vm.expect(self.prompt_regex, timeout=None, async_=True)
         else:
-            self.vm.expect(self.prompt_regex, async_=True)
+            await self.vm.expect(self.prompt_regex, async_=True)
 
     def handle_fuzzer_crash(self):
         """Handle a recoverable fuzzer crash
@@ -169,7 +169,7 @@ class VM:
             self.vm.sendline(self.args)
 
             expected = [FORKSERVER_DEATH, self.prompt_regex]
-            idx = self.vm.expect(expected, timeout=None, async_=True)
+            idx = await self.vm.expect(expected, timeout=None, async_=True)
             if idx == 0:
                 print("Detected forkserver death, probably caused by BUG()")
                 self.handle_fuzzer_crash()
@@ -301,7 +301,7 @@ class Manager:
         if self.parallel and nr_cpus > 1:
             await self.run_parallel(nr_cpus)
         else:
-            self.prep_one().run()
+            await self.prep_one().run()
 
     def run(self):
         asyncio.run(self._run())
