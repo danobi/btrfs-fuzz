@@ -101,7 +101,6 @@ def get_nspawn_args(fsdir, state_dir):
 
     c.append("sudo systemd-nspawn")
     c.append(f"--directory {fsdir}")
-    c.append("--machine btrfs-fuzz")
     c.append(f"--bind={abs_state_dir}:/state")
     c.append("--chdir=/btrfs-fuzz")
 
