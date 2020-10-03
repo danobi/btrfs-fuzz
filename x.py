@@ -288,8 +288,8 @@ def main():
     )
     run.add_argument(
         "--parallel",
-        action="store_true",
-        help="Fuzz in parallel on all available CPUs",
+        type=int,
+        help="Fuzz in parallel on PARALLEL # of cpus. -1 means all cpus.",
     )
     run.set_defaults(func=cmd_run)
 

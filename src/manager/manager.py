@@ -194,13 +194,14 @@ class VM:
 
 
 class Manager:
-    def __init__(self, img, state_dir, nspawn=False, parallel=False):
+    def __init__(self, img, state_dir, nspawn=False, parallel=None):
         """Initialize Manager
         img: Name of docker image to run
         state_dir: Path to directory to map into /state inside VM
         nspawn: Treat `img` as the path to a untarred filesystem and use systemd-nspawn
              to start container
-        parallel: Run distributed fuzzing instances on # CPUs the host has
+        parallel: If specified, run parallel fuzzing on provided # of CPUs. -1 means all,
+                  default is 1.
         """
         # Which docker image to use
         self.img = img
@@ -323,10 +324,16 @@ class Manager:
             await asyncio.sleep(1)
 
     async def _run(self):
+        run_parallel = False
+        if self.parallel is not None:
+            if self.parallel == -1:
+                run_parallel = True
+                nr_cpus = len(os.sched_getaffinity(0))
+            elif self.parallel > 1:
+                run_parallel = True
+                nr_cpus = self.parallel
 
-        nr_cpus = len(os.sched_getaffinity(0))
-
-        if self.parallel and nr_cpus > 1:
+        if run_parallel:
             await self.run_parallel(nr_cpus)
         else:
             await self.prep_one().run()
