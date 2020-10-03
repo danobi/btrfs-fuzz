@@ -211,8 +211,10 @@ class Manager:
 
         self.vm = None
 
-    def spawn_vm(self):
+    def spawn_vm(self, display):
         """Spawn a single VM
+
+        display: Print child output to stdout
 
         Returns a `pexpect.spawn` instance
         """
@@ -225,7 +227,8 @@ class Manager:
         p = pexpect.spawn(cmd, encoding="utf-8")
 
         # Pipe everything the child prints to our stdout
-        p.logfile_read = sys.stdout
+        if display:
+            p.logfile_read = sys.stdout
 
         return p
 
@@ -238,7 +241,10 @@ class Manager:
         Returns a `VM` instance
         """
         # Start the VM (could take a few seconds)
-        p = self.spawn_vm()
+        #
+        # Only display output if master instance or sole instance in non-parallel
+        # mode
+        p = self.spawn_vm(master or (not master and not secondary))
 
         # For docker images we rely on the ENTRYPOINT directive. For nspawn we
         # have to do it ourselves
