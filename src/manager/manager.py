@@ -275,7 +275,9 @@ class Manager:
                 name = f"btrfs-fuzz-{get_secondary_name(i)}"
                 vm = self.prep_one(secondary=i)
 
-            t = asyncio.create_task(vm.run(), name=name)
+            # ensure_future() == create_task() but ensure_future() works on all
+            # python versions and create_task() is 3.7+
+            t = asyncio.ensure_future(vm.run(), name=name)
             tasks.append(t)
 
         # Now manage all the running tasks -- if any die, we'll error out
