@@ -93,16 +93,19 @@ def get_docker_args(img, state_dir):
     return c
 
 
-def get_nspawn_args(fsdir, state_dir):
+def get_nspawn_args(fsdir, state_dir, machine_idx):
     c = []
 
     abs_fsdir_path = os.path.abspath(fsdir)
     abs_state_dir = os.path.abspath(state_dir)
 
-    c.append("sudo systemd-nspawn")
+    c.append("sudo")
+    c.append("SYSTEMD_NSPAWN_LOCK=0")
+    c.append("systemd-nspawn")
     c.append(f"--directory {fsdir}")
     c.append(f"--bind={abs_state_dir}:/state")
     c.append("--chdir=/btrfs-fuzz")
+    c.append(f"--machine btrfs-fuzz-{machine_idx}")
 
     # Map into the container /dev/kvm so qemu can run faster
     c.append(f"--bind=/dev/kvm:/dev/kvm")
@@ -210,6 +213,9 @@ class Manager:
 
         self.vm = None
 
+        # Use to create uniquely named machinectl names
+        self.machine_idx = 0
+
     def spawn_vm(self, display):
         """Spawn a single VM
 
@@ -218,7 +224,8 @@ class Manager:
         Returns a `pexpect.spawn` instance
         """
         if self.nspawn:
-            args = get_nspawn_args(self.img, self.state_dir)
+            args = get_nspawn_args(self.img, self.state_dir, self.machine_idx)
+            self.machine_idx += 1
         else:
             args = get_docker_args(self.img, self.state_dir)
         cmd = " ".join(args)
