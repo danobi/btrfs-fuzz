@@ -314,7 +314,12 @@ class Manager:
 
     def run(self):
         def cancel_all_tasks():
-            for t in asyncio.all_tasks():
+            if sys.version_info < (3, 7):
+                all_tasks = asyncio.Task.all_tasks()
+            else:
+                all_tasks = asyncio.all_tasks()
+
+            for t in all_tasks:
                 t.cancel()
 
         # If we don't cancel the outstanding tasks, the containers leak
