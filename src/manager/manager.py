@@ -185,6 +185,7 @@ class VM:
         try:
             await self._run()
         except asyncio.CancelledError:
+            # podman won't clean up after us unless we kill the entire process tree
             pid = self.vm.pid
             print(f"Sending SIGKILL to all pids in pid={pid} tree")
             os.system(f"pkill -KILL -P {pid}")
