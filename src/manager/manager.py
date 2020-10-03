@@ -288,7 +288,11 @@ class Manager:
             exit = False
             for t in tasks:
                 if t.done():
-                    print(f"Task={t.get_name()} unexpectedly exited. Exiting now.")
+                    if sys.version_info < (3, 8):
+                        name = ""
+                    else:
+                        name = t.get_name()
+                    print(f"Task={name} unexpectedly exited. Exiting now.")
                     triggering_task = t
                     exit = True
                     break
