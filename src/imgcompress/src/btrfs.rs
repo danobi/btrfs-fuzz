@@ -59,14 +59,8 @@ impl<'a> Btrfs<'a> {
         // Save node size b/c the value in the superblock could get fuzzed to something else
         compressed.node_size = self.superblock.node_size.try_into()?;
 
-        // Save superblock
-        //
-        // TODO: should we save the other superblocks too?
-        compressed.mark_as_metadata(
-            BTRFS_SUPERBLOCK_OFFSET.try_into()?,
-            &self.image[BTRFS_SUPERBLOCK_OFFSET..(BTRFS_SUPERBLOCK_OFFSET + BTRFS_SUPERBLOCK_SIZE)],
-            true,
-        )?;
+        // Save all superblocks
+        self.save_superblocks(&mut compressed)?;
 
         // Parse everything in the root tree
         self.parse_root_tree(&mut compressed)
@@ -79,6 +73,27 @@ impl<'a> Btrfs<'a> {
         }
 
         Ok(compressed)
+    }
+
+    fn save_superblocks(&self, compressed: &mut CompressedBtrfsImage) -> Result<()> {
+        // First superblock has to exist
+        compressed.mark_as_metadata(
+            BTRFS_SUPERBLOCK_OFFSET.try_into()?,
+            &self.image[BTRFS_SUPERBLOCK_OFFSET..(BTRFS_SUPERBLOCK_OFFSET + BTRFS_SUPERBLOCK_SIZE)],
+            true,
+        )?;
+
+        for offset in vec![BTRFS_SUPERBLOCK_OFFSET2, BTRFS_SUPERBLOCK_OFFSET3] {
+            if self.image.len() >= (offset + BTRFS_SUPERBLOCK_SIZE) {
+                compressed.mark_as_metadata(
+                    offset.try_into()?,
+                    &self.image[offset..(offset + BTRFS_SUPERBLOCK_SIZE)],
+                    true,
+                )?;
+            }
+        }
+
+        Ok(())
     }
 
     fn parse_root_tree(&self, compressed: &mut CompressedBtrfsImage) -> Result<()> {
