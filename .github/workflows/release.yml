@@ -22,8 +22,16 @@ jobs:
         run: "sudo ln -s $(which python) /bin/python3"
       - name: Install pexpect
         run: "pip install --user pexpect"
+      - name: Free disk space
+        run: |
+	  sudo swapoff -a
+	  sudo rm -f /swapfile
+	  sudo apt clean
+	  podman rmi $(podman image ls -aq)
+	  df -h
       - name: Build docker image
         run: |
+          ./x.py build
           ./x.py --local build-tar --zstd fs.tzst
       - name: Create release
         id: create_release
