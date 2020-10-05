@@ -19,15 +19,27 @@ mod tree;
 use btrfs::Btrfs;
 use structs::*;
 
+/// Metadata for a metadata extent.
+#[derive(Deserialize, Serialize, Default)]
+pub struct MetadataExtent {
+    /// If true, this metadata extent begins with a csum field that needs fixups
+    pub needs_csum_fixup: bool,
+    /// Offset in the decompressed image this extent needs to be written
+    pub offset: u64,
+    /// Length of metadata extent
+    pub size: u64,
+}
+
 #[derive(Deserialize, Serialize, Default)]
 pub struct CompressedBtrfsImage {
     /// Compressed original image. Fuzzed metadata should be laid on top of the original image.
     base: Vec<u8>,
-    /// Vector of (offset, size) tuples>
+    /// Each entry in this vector describes a metadata extent in `data`.
     ///
-    /// For example, if `metadata` contained [(0, 10), (50, 5)], then `data.len()` == 15, where the
-    /// first 10 bytes would go to offset 0 and the last 5 bytes would go to offset 50.
-    pub metadata: Vec<(u64, u64)>,
+    /// For example, if `metadata` contained entries [(offset 0, size 10), (offset 50, size 5)],
+    /// then `data.len()` == 15, where the first 10 bytes would go to offset 0 and the last 5 bytes
+    /// would go to offset 50.
+    pub metadata: Vec<MetadataExtent>,
     pub data: Vec<u8>,
     /// Size of each node in the btree. Used to calculate checksum in node headers.
     node_size: usize,
@@ -35,8 +47,17 @@ pub struct CompressedBtrfsImage {
 
 impl CompressedBtrfsImage {
     /// Mark a range of data as metadata
-    pub(crate) fn mark_as_metadata(&mut self, physical: u64, metadata: &[u8]) -> Result<()> {
-        self.metadata.push((physical, metadata.len().try_into()?));
+    pub(crate) fn mark_as_metadata(
+        &mut self,
+        physical: u64,
+        metadata: &[u8],
+        needs_csum_fixup: bool,
+    ) -> Result<()> {
+        self.metadata.push(MetadataExtent {
+            needs_csum_fixup,
+            offset: physical,
+            size: metadata.len().try_into()?,
+        });
         self.data.extend_from_slice(metadata);
 
         Ok(())
@@ -58,9 +79,9 @@ pub fn decompress(compressed: &CompressedBtrfsImage) -> Result<Vec<u8>> {
 
     // Now overwrite `image` with the metadata placed at their original offsets
     let mut data_idx = 0;
-    for (offset, size) in &compressed.metadata {
-        let offset: usize = (*offset).try_into()?;
-        let size: usize = (*size).try_into()?;
+    for metadata in &compressed.metadata {
+        let offset: usize = metadata.offset.try_into()?;
+        let size: usize = metadata.size.try_into()?;
 
         let _: Vec<_> = image
             .splice(
@@ -90,8 +111,8 @@ pub fn decompress(compressed: &CompressedBtrfsImage) -> Result<Vec<u8>> {
     }
 
     // Recalculate checksum for each block
-    for (offset, _) in &compressed.metadata {
-        let offset: usize = (*offset).try_into()?;
+    for metadata in &compressed.metadata {
+        let offset: usize = metadata.offset.try_into()?;
 
         let block_size = if offset == BTRFS_SUPERBLOCK_OFFSET
             || offset == BTRFS_SUPERBLOCK_OFFSET2
@@ -186,9 +207,9 @@ fn test_superblock_magic_fixup() {
     // Corrupt the magic in the superblock
     let mut data_idx: usize = 0;
     let mut corrupted_super = false;
-    for (offset, size) in &compressed.metadata {
-        let offset: usize = (*offset).try_into().unwrap();
-        let size: usize = (*size).try_into().unwrap();
+    for metadata in &compressed.metadata {
+        let offset: usize = metadata.offset.try_into().unwrap();
+        let size: usize = metadata.size.try_into().unwrap();
 
         if offset == BTRFS_SUPERBLOCK_OFFSET {
             let superblock =
@@ -221,8 +242,8 @@ fn test_checksum_fixup_on_metadata_corruption() {
     let mut data_idx: usize = 0;
     let mut csum_before: Option<Vec<u8>> = None;
     let mut scribbed_offset: usize = 0;
-    for (offset, size) in &compressed.metadata {
-        let size: usize = (*size).try_into().unwrap();
+    for metadata in &compressed.metadata {
+        let size: usize = metadata.size.try_into().unwrap();
 
         // Skip superblock to avoid overtesting the superblock
         if first {
@@ -231,7 +252,7 @@ fn test_checksum_fixup_on_metadata_corruption() {
             continue;
         }
 
-        scribbed_offset = (*offset).try_into().unwrap();
+        scribbed_offset = metadata.offset.try_into().unwrap();
 
         // Store checksum before
         csum_before = Some(compressed.data[data_idx..(data_idx + BTRFS_CSUM_SIZE)].to_owned());

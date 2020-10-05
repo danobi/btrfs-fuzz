@@ -65,6 +65,7 @@ impl<'a> Btrfs<'a> {
         compressed.mark_as_metadata(
             BTRFS_SUPERBLOCK_OFFSET.try_into()?,
             &self.image[BTRFS_SUPERBLOCK_OFFSET..(BTRFS_SUPERBLOCK_OFFSET + BTRFS_SUPERBLOCK_SIZE)],
+            true,
         )?;
 
         // Parse everything in the root tree
@@ -94,7 +95,7 @@ impl<'a> Btrfs<'a> {
             // Store the header b/c it's metadata
             let metadata_size =
                 size_of::<BtrfsHeader>() + (header.nritems as usize * size_of::<BtrfsItem>());
-            compressed.mark_as_metadata(physical, &node[..metadata_size])?;
+            compressed.mark_as_metadata(physical, &node[..metadata_size], true)?;
 
             // Now recursively walk the tree
             let items = tree::parse_btrfs_leaf(node)?;
@@ -134,11 +135,11 @@ impl<'a> Btrfs<'a> {
         if header.level == 0 {
             // We're at a leaf: still store the metadata but don't store any payloads
             metadata_size += header.nritems as usize * size_of::<BtrfsItem>();
-            compressed.mark_as_metadata(physical, &node[..metadata_size])?;
+            compressed.mark_as_metadata(physical, &node[..metadata_size], true)?;
         } else {
             // We're at an internal node: there's no payload
             metadata_size += header.nritems as usize * size_of::<BtrfsKeyPtr>();
-            compressed.mark_as_metadata(physical, &node[..metadata_size])?;
+            compressed.mark_as_metadata(physical, &node[..metadata_size], true)?;
 
             // Recursively visit children
             let ptrs = tree::parse_btrfs_node(node)?;
