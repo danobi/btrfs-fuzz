@@ -20,6 +20,8 @@ jobs:
           python-version: '3.x'
       - name: Symlink python3
         run: "sudo ln -s $(which python) /bin/python3"
+      - name: Install pexpect
+        run: "pip install --user pexpect"
       - name: Build docker image
         run: |
           ./x.py build
