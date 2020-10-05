@@ -148,7 +148,16 @@ def cmd_seed(args):
     # Copy files from checked in corpus over too
     corpus_files = os.listdir("./corpus")
     for f in corpus_files:
-        shutil.copy(f"./corpus/{f}", f"{args.state_dir}/input/{f}")
+        assert f.endswith(".zst")
+        raw_fname = f[:-4]
+        raw_path = f"{args.state_dir}/input/{raw_fname}"
+        assert raw_path.endswith(".raw")
+        compressed_fname = raw_fname[:-4]
+        compressed_path = f"{args.state_dir}/input/{compressed_fname}"
+
+        sh(f"zstd -d ./corpus/{f} -o {raw_path}")
+        sh(f"cargo run -p imgcompress compress -- {raw_path} {compressed_path}")
+        sh(f"rm {raw_path}")
 
     # Write a readme to describe what each directory contains
     readme_path = pathlib.Path(f"{args.state_dir}/README")
