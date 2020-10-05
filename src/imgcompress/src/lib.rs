@@ -112,6 +112,10 @@ pub fn decompress(compressed: &CompressedBtrfsImage) -> Result<Vec<u8>> {
 
     // Recalculate checksum for each block
     for metadata in &compressed.metadata {
+        if !metadata.needs_csum_fixup {
+            continue;
+        }
+
         let offset: usize = metadata.offset.try_into()?;
 
         let block_size = if offset == BTRFS_SUPERBLOCK_OFFSET
@@ -244,6 +248,11 @@ fn test_checksum_fixup_on_metadata_corruption() {
     let mut scribbed_offset: usize = 0;
     for metadata in &compressed.metadata {
         let size: usize = metadata.size.try_into().unwrap();
+
+        if !metadata.needs_csum_fixup {
+            data_idx += size;
+            continue;
+        }
 
         // Skip superblock to avoid overtesting the superblock
         if first {

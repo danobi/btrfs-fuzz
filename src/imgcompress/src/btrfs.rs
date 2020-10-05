@@ -11,11 +11,8 @@ use crate::CompressedBtrfsImage;
 
 /// Helper struct to compress a valid btrfs image.
 ///
-/// The first pass implementation of this struct only extracts the btree metadata for fuzzing. In
-/// theory, it'd be useful to extract leaf node payloads for metadata trees and see how the kernel
-/// reacts to that data being fuzzed. It should be relatively straightforward to implement that in
-/// the future. Just add more entries to `CompressedBtrfsImage::metadata` and
-/// `CompressedBtrfsImage::data` as the trees are walked.
+/// To annotate more of the image for fuzzing, just add more entries to
+/// `CompressedBtrfsImage::metadata` and `CompressedBtrfsImage::data` as the trees are walked.
 pub struct Btrfs<'a> {
     image: &'a [u8],
     superblock: &'a BtrfsSuperblock,
@@ -83,7 +80,8 @@ impl<'a> Btrfs<'a> {
             true,
         )?;
 
-        for offset in vec![BTRFS_SUPERBLOCK_OFFSET2, BTRFS_SUPERBLOCK_OFFSET3] {
+        for offset in &[BTRFS_SUPERBLOCK_OFFSET2, BTRFS_SUPERBLOCK_OFFSET3] {
+            let offset = *offset;
             if self.image.len() >= (offset + BTRFS_SUPERBLOCK_SIZE) {
                 compressed.mark_as_metadata(
                     offset.try_into()?,
@@ -148,9 +146,29 @@ impl<'a> Btrfs<'a> {
         let mut metadata_size = size_of::<BtrfsHeader>();
 
         if header.level == 0 {
-            // We're at a leaf: still store the metadata but don't store any payloads
+            // First annotate header
             metadata_size += header.nritems as usize * size_of::<BtrfsItem>();
             compressed.mark_as_metadata(physical, &node[..metadata_size], true)?;
+
+            // Now annotate payloads
+            //
+            // First find the "left most" payload item. Leaf payloads grow from right
+            // to left while `BtrfsItem` structs grow left to right.
+            let mut lowest_offset = None;
+            for item in tree::parse_btrfs_leaf(node)? {
+                if lowest_offset.is_none() || item.offset < lowest_offset.unwrap() {
+                    lowest_offset = Some(item.offset);
+                }
+            }
+
+            if let Some(lowest) = lowest_offset {
+                let physical: usize = physical.try_into()?;
+                let lowest: usize = lowest.try_into()?;
+                let node_size: usize = self.superblock.node_size.try_into()?;
+                let start: usize = physical + size_of::<BtrfsHeader>() + lowest;
+                let end: usize = physical + node_size;
+                compressed.mark_as_metadata(start.try_into()?, &self.image[start..end], false)?;
+            }
         } else {
             // We're at an internal node: there's no payload
             metadata_size += header.nritems as usize * size_of::<BtrfsKeyPtr>();
