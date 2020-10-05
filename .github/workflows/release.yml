@@ -13,7 +13,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
       - name: Install deps
-        run: sudo apt-get install btrfs-progs podman
+        run: sudo apt-get install btrfs-progs podman python3
       - name: Build docker image
         run: |
           ./x.py build
