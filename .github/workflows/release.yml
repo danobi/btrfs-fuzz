@@ -24,6 +24,7 @@ jobs:
         run: "pip install --user pexpect"
       - name: Free disk space
         run: |
+          echo "Before disk space clean"
           df -h
           sudo swapoff -a
           sudo rm -f /swapfile
