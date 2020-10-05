@@ -33,6 +33,7 @@ jobs:
           df -h
       - name: Build docker image
         run: |
+          ./x.py build
           ./x.py --local build-tar --zstd fs.tzst
       - name: Create release
         id: create_release
