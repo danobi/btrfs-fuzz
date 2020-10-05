@@ -17,7 +17,7 @@ jobs:
       - name: Build docker image
         run: |
           ./x.py build
-          ./x.py build-tar --zstd fs.tzst
+          ./x.py --local build-tar --zstd fs.tzst
       - name: Create release
         id: create_release
         uses: actions/create-release@v1
