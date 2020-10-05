@@ -29,7 +29,7 @@ jobs:
           sudo swapoff -a
           sudo rm -f /swapfile
           sudo apt-get clean
-          podman rmi --all -f
+          docker rmi $(docker image ls -aq)
           df -h
       - name: Build docker image
         run: |
