@@ -24,10 +24,11 @@ jobs:
         run: "pip install --user pexpect"
       - name: Free disk space
         run: |
+          df -h
           sudo swapoff -a
           sudo rm -f /swapfile
           sudo apt-get clean
-          docker rmi $(docker image ls -aq)
+          podman rmi --all -f
           df -h
       - name: Build docker image
         run: |
