@@ -3,6 +3,7 @@
 import argparse
 import os
 import pathlib
+import shutil
 import subprocess
 import sys
 
@@ -143,6 +144,11 @@ def cmd_seed(args):
     compressed_image_path = f"{args.state_dir}/input/img_compressed"
     sh(f"cargo run --bin imgcompress -- compress {image_path} {compressed_image_path}")
     sh(f"rm {image_path}")
+
+    # Copy files from checked in corpus over too
+    corpus_files = os.listdir("./corpus")
+    for f in corpus_files:
+        shutil.copy(f"./corpus/{f}", f"{args.state_dir}/input/{f}")
 
     # Write a readme to describe what each directory contains
     readme_path = pathlib.Path(f"{args.state_dir}/README")
