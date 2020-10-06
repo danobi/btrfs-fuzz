@@ -17,6 +17,7 @@ const COVER_SIZE: usize = 16 << 10;
 const KCOV_IOCTL_MAGIC: u8 = b'c';
 const KCOV_INIT_TRACE_IOCTL_SEQ: u8 = 1;
 const KCOV_ENABLE_IOCTL_SEQ: u8 = 100;
+#[allow(dead_code)]
 const KCOV_DISABLE_IOCTL_SEQ: u8 = 101;
 const KCOV_TRACE_PC: u64 = 0;
 
@@ -106,6 +107,7 @@ impl Kcov {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn disable(&mut self) -> Result<usize> {
         let len = self.coverage()[0].load(Ordering::Relaxed);
 

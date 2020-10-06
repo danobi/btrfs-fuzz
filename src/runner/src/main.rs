@@ -15,7 +15,8 @@ use nix::errno::{errno, Errno};
 use nix::fcntl::{open, OFlag};
 use nix::ioctl_write_ptr;
 use nix::sys::stat::Mode;
-use nix::unistd::{lseek, Whence};
+use nix::sys::wait::{waitpid, WaitStatus};
+use nix::unistd::{fork, lseek, ForkResult, Whence};
 use rmp_serde::decode::from_read_ref;
 use static_assertions::const_assert;
 use structopt::StructOpt;
@@ -249,6 +250,58 @@ fn work<P: AsRef<Path>>(mounter: &mut Mounter, image: P, debug: bool) {
     }
 }
 
+/// Fork a child and execute test case.
+///
+/// NB: Returning an error crashes the fuzzer. DO NOT return an error unless it's truly unrecoverable.
+fn fork_work_and_wait<P: AsRef<Path>>(
+    kcov: &mut Kcov,
+    kmsg: i32,
+    mounter: &mut Mounter,
+    image: P,
+    debug: bool,
+) -> Result<RunStatus> {
+    const EXIT_OK: i32 = 88;
+    const EXIT_BAD: i32 = 89;
+
+    match fork()? {
+        ForkResult::Parent { child } => {
+            let res = waitpid(child, None)?;
+
+            if kmsg_contains_bug(kmsg)? {
+                return Ok(RunStatus::Success);
+            }
+
+            match res {
+                WaitStatus::Exited(pid, rc) => {
+                    if rc != EXIT_OK {
+                        bail!("Forked child={} had an unclean exit={}", pid, rc);
+                    }
+
+                    Ok(RunStatus::Success)
+                }
+                WaitStatus::Signaled(_, _, _) => Ok(RunStatus::Failure),
+                _ => bail!("Unexpected waitpid() status={:?}", res),
+            }
+        }
+        // Be careful not to return from the child branch -- we must always exit the child
+        // process so the parent can reap our status.
+        ForkResult::Child => {
+            match kcov.enable() {
+                Ok(_) => (),
+                Err(e) => {
+                    eprintln!("Failed to enable kcov: {}", e);
+                    exit(EXIT_BAD);
+                }
+            }
+
+            work(mounter, image, debug);
+
+            // Kcov is automatically disabled when the child terminates
+            exit(EXIT_OK);
+        }
+    }
+}
+
 fn _main() -> Result<()> {
     let opts = Opt::from_args();
 
@@ -295,17 +348,19 @@ fn _main() -> Result<()> {
         // Reset kernel state
         reset_btrfs_devices()?;
 
-        // Start coverage collection, do work, then disable collection
-        kcov.enable()?;
-        work(&mut mounter, FUZZED_IMAGE_PATH, opts.debug);
-        let size = kcov.disable()?;
+        // Fork a child and perform test
+        let status =
+            fork_work_and_wait(&mut kcov, kmsg, &mut mounter, FUZZED_IMAGE_PATH, opts.debug)?;
+
+        // When the child exits coverage is disabled so we're good to read memory mapped data here
+        let coverage = kcov.coverage();
+        let size = coverage[0].load(Ordering::Relaxed);
 
         if opts.debug {
             println!("{} kcov entries", size);
         }
 
         // Report edge transitions to AFL
-        let coverage = kcov.coverage();
         let shmem = forkserver.shmem();
         let mut prev_loc: u64 = 0xDEAD; // Our compile time "random"
         for i in 0..size {
@@ -329,11 +384,7 @@ fn _main() -> Result<()> {
         }
 
         // Report run status to AFL
-        if kmsg_contains_bug(kmsg)? {
-            forkserver.report(RunStatus::Failure)?;
-        } else {
-            forkserver.report(RunStatus::Success)?;
-        }
+        forkserver.report(status)?;
 
         count += 1;
     }
