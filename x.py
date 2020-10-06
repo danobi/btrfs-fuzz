@@ -221,6 +221,14 @@ def cmd_repro(args):
         p.interact()
 
 
+def cmd_push(args):
+    c = ["podman push"]
+    c.append(DOCKER_IMAGE_LOCAL)
+    c.append(f"docker://docker.io/{DOCKER_IMAGE_REMOTE}:latest")
+
+    sh(" ".join(c))
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="x", formatter_class=argparse.ArgumentDefaultsHelpFormatter
@@ -323,6 +331,9 @@ def main():
         help="Exit VM after repro runs (useful for scripting)",
     )
     repro.set_defaults(func=cmd_repro)
+
+    push = subparsers.add_parser("push", help="push local image to docker hub")
+    push.set_defaults(func=cmd_push)
 
     help = subparsers.add_parser("help", help="print help")
     help.set_defaults(func=lambda _: parser.print_help())
