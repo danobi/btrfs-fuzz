@@ -6,6 +6,7 @@ use std::hash::Hasher;
 use std::io::{self, Read, Write};
 use std::os::unix::io::AsRawFd;
 use std::path::{Path, PathBuf};
+use std::process::exit;
 use std::sync::atomic::Ordering;
 
 use anyhow::{bail, Context, Result};
@@ -248,7 +249,7 @@ fn work<P: AsRef<Path>>(mounter: &mut Mounter, image: P, debug: bool) {
     }
 }
 
-fn main() -> Result<()> {
+fn _main() -> Result<()> {
     let opts = Opt::from_args();
 
     // Initialize forkserver and handshake with AFL
@@ -338,6 +339,16 @@ fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+fn main() {
+    match _main() {
+        Ok(_) => exit(0),
+        Err(e) => {
+            eprintln!("Unclean runner exit: {}", e);
+            exit(1);
+        }
+    }
 }
 
 #[test]
