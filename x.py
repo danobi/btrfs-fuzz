@@ -129,7 +129,6 @@ def cmd_seed(args):
 
     pathlib.Path.mkdir(pathlib.Path(f"{args.state_dir}/input"), parents=True)
     pathlib.Path.mkdir(pathlib.Path(f"{args.state_dir}/output"))
-    pathlib.Path.mkdir(pathlib.Path(f"{args.state_dir}/current"))
     pathlib.Path.mkdir(pathlib.Path(f"{args.state_dir}/known_crashes"))
 
     # Generate raw image
@@ -164,7 +163,6 @@ def cmd_seed(args):
     with open(readme_path, "w") as f:
         content = "This directory holds all the state for a fuzzing session.\n\n"
         content += "Each subdirectory contains as follows:\n\n"
-        content += "current: contains last-n test case images\n"
         content += (
             "known_crashes: test cast images that are known to cause a "
             "BUG() or kernel panic\n"
