@@ -3,10 +3,10 @@
 # Script to see if discovered crashes can reproduce.
 #
 # Env vars:
-#     LOCAL: use `x.py --local`
+#     REMOTE: use `x.py --remote`
 #
 # Example:
-#     LOCAL=1 ./validate_crashes.sh ./_state/output/crashes
+#     REMOTE=1 ./validate_crashes.sh ./_state/output/crashes
 #
 
 set -eu
@@ -16,8 +16,8 @@ if [[ "$#" != 1 ]]; then
   exit 1
 fi
 
-if [[ -v LOCAL ]]; then
-  cmd="./x.py --local"
+if [[ -v REMOTE ]]; then
+  cmd="./x.py --remote"
 else
   cmd="./x.py"
 fi
