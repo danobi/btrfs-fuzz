@@ -1,9 +1,11 @@
 use std::fs;
+use std::os::unix::io::AsRawFd;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use anyhow::{anyhow, bail, Context, Result};
 use loopdev::{LoopControl, LoopDevice};
+use nix::fcntl::{fcntl, FcntlArg, FdFlag};
 use sys_mount::{FilesystemType, MountFlags, Unmount, UnmountFlags};
 
 pub struct Mounter {
@@ -19,6 +21,14 @@ impl Mounter {
         let device = control
             .next_free()
             .with_context(|| "Failed to get next free loop dev".to_string())?;
+
+        // Disable O_CLOEXEC on underlying loopdev FD so that instances of this mounter
+        // may be used in forked child processes.
+        let fd = device.as_raw_fd();
+        let mut flags = FdFlag::from_bits(fcntl(fd, FcntlArg::F_GETFD)?)
+            .ok_or_else(|| anyhow!("Failed to interpret FdFlag"))?;
+        flags &= !FdFlag::FD_CLOEXEC;
+        fcntl(fd, FcntlArg::F_SETFD(flags))?;
 
         Ok(Self {
             loopdev: device,
