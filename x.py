@@ -223,7 +223,7 @@ def cmd_repro(args):
         # Extra sanity check: check dmesg for a bug
         p.sendline("dmesg | grep BUG")
         p.expect("root@.*#")
-        p.sendline("if (($? == 0)); then echo ok; else echo fail; fi")
+        p.sendline("if (($? != 0)); then echo ok; else echo fail; fi")
         idx = p.expect(["ok", "fail"])
         if idx != 0:
             print("FAILURE DETECTED: UNCLEAN EXIT")
