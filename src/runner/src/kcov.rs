@@ -7,7 +7,8 @@ use std::slice;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
+use nix::fcntl::{fcntl, FcntlArg, FdFlag};
 use nix::{ioctl_read, ioctl_write_int_bad, request_code_none};
 
 const COVER_SIZE: usize = 16 << 10;
@@ -50,6 +51,12 @@ impl Kcov {
             .open("/sys/kernel/debug/kcov")
             .with_context(|| "Failed to open kcov control file".to_string())?;
         let fd = file.as_raw_fd();
+
+        // Disable O_CLOEXEC so we can use this struct instance in a forked child
+        let mut flags = FdFlag::from_bits(fcntl(fd, FcntlArg::F_GETFD)?)
+            .ok_or_else(|| anyhow!("Failed to interpret FdFlag"))?;
+        flags &= !FdFlag::FD_CLOEXEC;
+        fcntl(fd, FcntlArg::F_SETFD(flags))?;
 
         if unsafe {
             kcov_init_trace(fd, COVER_SIZE as *mut u64)
