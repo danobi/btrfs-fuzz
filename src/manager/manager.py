@@ -116,11 +116,13 @@ def get_nspawn_args(fsdir, state_dir, machine_idx):
 class VM:
     """One virtual machine instance"""
 
-    def __init__(self, p, args, needs_vm_entry=False, name=None):
+    def __init__(self, p, args, state_dir, needs_vm_entry=False, name=None):
         """Initialize VM
         p: An already spawned `pexpect.spawn` VM instance. Nothing should be
            running in the VM yet.
         args: Arguments to invoke AFL (string)
+        state_dir: State directory for fuzzing session (could be shared between
+                   multiple VMs)
         needs_vm_entry: If true, the container has been entered but the VM has
                         not been spawned yet. Pass true to also run ./entry.sh
         name: Name of the VM instance. Only needs to be specified if running
@@ -128,6 +130,7 @@ class VM:
         """
         self.vm = p
         self.args = args
+        self.state_dir = state_dir
         self.needs_vm_entry = needs_vm_entry
         self.name = name
         self.prompt_regex = "root@.*#"
@@ -148,13 +151,12 @@ class VM:
         by a kernel BUG(). When this happens, mark the current test case as
         a known crash so the runner can avoid it in the future.
         """
+        output_dir = f"{self.state_dir}/output"
         if self.name is not None:
-            state_dir = f"/state/output/{self.name}"
-        else:
-            state_dir = "/state/output"
+            output_dir += f"/{self.name}"
 
-        cur_input = os.path.abspath(f"{state_dir}/.cur_input")
-        dest = os.path.abspath(f"/state/known_crashes/{uuid.uuid4()}")
+        cur_input = os.path.abspath(f"{output_dir}/.cur_input")
+        dest = os.path.abspath(f"{self.state_dir}/known_crashes/{uuid.uuid4()}")
         shutil.copy(cur_input, dest)
 
     async def _run(self):
@@ -270,7 +272,9 @@ class Manager:
         else:
             name = None
 
-        return VM(p, " ".join(cmd), needs_vm_entry=needs_vm_entry, name=name)
+        return VM(
+            p, " ".join(cmd), self.state_dir, needs_vm_entry=needs_vm_entry, name=name
+        )
 
     async def run_parallel(self, nr_cpus):
         tasks = []
