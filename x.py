@@ -164,8 +164,7 @@ def cmd_seed(args):
         content = "This directory holds all the state for a fuzzing session.\n\n"
         content += "Each subdirectory contains as follows:\n\n"
         content += (
-            "known_crashes: test cast images that are known to cause a "
-            "BUG() or kernel panic\n"
+            "known_crashes: test cast images that are known to cause a kernel panic\n"
         )
         content += "input: afl++ input directory\n"
         content += "output: afl++ output directory\n"

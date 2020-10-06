@@ -10,6 +10,7 @@ import uuid
 import pexpect
 
 MASTER_NAME = "master"
+KERNEL_PANIC_STR = "Kernel panic"
 
 
 def get_secondary_name(idx):
@@ -142,6 +143,16 @@ class VM:
         else:
             await self.vm.expect(self.prompt_regex, async_=True)
 
+    def handle_kernel_panic(self):
+        """Save the current input if it triggers a kernel panic"""
+        output_dir = f"{self.state_dir}/output"
+        if self.name is not None:
+            output_dir += f"/{self.name}"
+
+        cur_input = os.path.abspath(f"{output_dir}/.cur_input")
+        dest = os.path.abspath(f"{self.state_dir}/known_crashes/{uuid.uuid4()}")
+        shutil.copy(cur_input, dest)
+
     async def _run(self):
         # `self.p` should not have been `expect()`d upon yet so we need to wait
         # until a prompt is ready
@@ -154,11 +165,19 @@ class VM:
         await self.run_and_wait("echo core > /proc/sys/kernel/core_pattern")
 
         # Start running fuzzer
-        await self.run_and_wait(self.args, disable_timeout=True)
+        self.vm.sendline(self.args)
 
-        # Only reached if fuzzer exits which we'll consider a bug
-        await self.vm.expect(self.prompt_regex, timeout=None, async_=True)
-        print("Unexpected fuzzer exit. Is there a bug with the runner? Not continuing.")
+        expected = [self.prompt_regex, KERNEL_PANIC_STR]
+        idx = await self.vm.expect(expected, timeout=None, async_=True)
+        if idx == 0:
+            print(
+                "Unexpected fuzzer exit. Is there a bug with the runner? Not continuing."
+            )
+        elif idx == 1:
+            print("Detected kernel panic!")
+            self.handle_kernel_panic()
+        else:
+            raise RuntimeError(f"Unknown expected idx={idx}")
 
     async def run(self):
         try:
