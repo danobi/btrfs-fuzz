@@ -9,7 +9,6 @@ import uuid
 
 import pexpect
 
-UNCLEAN_RUNNER_EXIT = "Unclean runner exit"
 MASTER_NAME = "master"
 
 
@@ -75,7 +74,6 @@ def get_cmd_args(master=False, secondary=None):
 
     c.append("--")
     c.append("/btrfs-fuzz/runner")
-    c.append("--known-crash-dir /state/known_crashes")
 
     return c
 
@@ -144,21 +142,6 @@ class VM:
         else:
             await self.vm.expect(self.prompt_regex, async_=True)
 
-    def handle_fuzzer_crash(self):
-        """Handle a recoverable fuzzer crash
-
-        A recoverable crash is when either the VM dies or the fuzzer is killed
-        by a kernel BUG(). When this happens, mark the current test case as
-        a known crash so the runner can avoid it in the future.
-        """
-        output_dir = f"{self.state_dir}/output"
-        if self.name is not None:
-            output_dir += f"/{self.name}"
-
-        cur_input = os.path.abspath(f"{output_dir}/.cur_input")
-        dest = os.path.abspath(f"{self.state_dir}/known_crashes/{uuid.uuid4()}")
-        shutil.copy(cur_input, dest)
-
     async def _run(self):
         # `self.p` should not have been `expect()`d upon yet so we need to wait
         # until a prompt is ready
@@ -171,22 +154,11 @@ class VM:
         await self.run_and_wait("echo core > /proc/sys/kernel/core_pattern")
 
         # Start running fuzzer
-        while True:
-            self.vm.sendline(self.args)
+        await self.run_and_wait(self.args, disable_timeout=True)
 
-            expected = [UNCLEAN_RUNNER_EXIT, self.prompt_regex]
-            idx = await self.vm.expect(expected, timeout=None, async_=True)
-            if idx == 0:
-                print("Detected unclean runner exit. Is there a bug with the runner?")
-                self.handle_fuzzer_crash()
-
-                # Process the prompt that comes back after the command exits
-                await self.vm.expect(self.prompt_regex, awync_=True)
-            elif idx == 1:
-                print("Unexpected fuzzer exit. Not continuing.")
-                break
-            else:
-                raise RuntimeError(f"Unknown expected idx={idx}")
+        # Only reached if fuzzer exits which we'll consider a bug
+        await self.vm.expect(self.prompt_regex, timeout=None, async_=True)
+        print("Unexpected fuzzer exit. Is there a bug with the runner? Not continuing.")
 
     async def run(self):
         try:
