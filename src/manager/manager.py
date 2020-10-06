@@ -9,7 +9,7 @@ import uuid
 
 import pexpect
 
-FORKSERVER_DEATH = "Unable to communicate with fork server"
+UNCLEAN_RUNNER_EXIT = "Unclean runner exit"
 MASTER_NAME = "master"
 
 
@@ -174,11 +174,14 @@ class VM:
         while True:
             self.vm.sendline(self.args)
 
-            expected = [FORKSERVER_DEATH, self.prompt_regex]
+            expected = [UNCLEAN_RUNNER_EXIT, self.prompt_regex]
             idx = await self.vm.expect(expected, timeout=None, async_=True)
             if idx == 0:
-                print("Detected forkserver death, probably caused by BUG()")
+                print("Detected unclean runner exit. Is there a bug with the runner?")
                 self.handle_fuzzer_crash()
+
+                # Process the prompt that comes back after the command exits
+                await self.vm.expect(self.prompt_regex, awync_=True)
             elif idx == 1:
                 print("Unexpected fuzzer exit. Not continuing.")
                 break
