@@ -122,7 +122,7 @@ fn kmsg_contains_bug(fd: i32) -> Result<bool> {
                 buf[n as usize] = 0;
 
                 let line = String::from_utf8_lossy(&buf);
-                if line.contains("BUG") {
+                if line.contains("BUG") || line.contains("UBSAN:") {
                     found = true;
                 }
             }
