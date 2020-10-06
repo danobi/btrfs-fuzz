@@ -297,7 +297,7 @@ class Manager:
             for t in tasks:
                 if t.done():
                     if sys.version_info < (3, 8):
-                        name = ""
+                        name = "?"
                     else:
                         name = t.get_name()
                     print(f"Task={name} unexpectedly exited. Exiting now.")
@@ -316,7 +316,11 @@ class Manager:
                 t = triggering_task
                 exc = t.exception()
                 if exc:
-                    print(f"Exception from {t.get_name()}: {exc}")
+                    if sys.version_info < (3, 8):
+                        name = "?"
+                    else:
+                        name = t.get_name()
+                    print(f"Exception from {name}: {exc}")
                     t.print_stack()
 
                 break
