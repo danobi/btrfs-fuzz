@@ -214,20 +214,6 @@ def cmd_repro(args):
 
         p.expect("root@.*#")
 
-        # Check if a BUG() killed our process
-        p.sendline("if (($? == 0)); then echo ok; else echo fail; fi")
-        idx = p.expect(["ok", "fail"])
-        if idx != 0:
-            print("FAILURE DETECTED: UNCLEAN EXIT")
-
-        # Extra sanity check: check dmesg for a bug
-        p.sendline("dmesg | grep BUG")
-        p.expect("root@.*#")
-        p.sendline("if (($? != 0)); then echo ok; else echo fail; fi")
-        idx = p.expect(["ok", "fail"])
-        if idx != 0:
-            print("FAILURE DETECTED: UNCLEAN EXIT")
-
         # `C-a x` to exit qemu
         p.sendcontrol("a")
         p.send("x")
