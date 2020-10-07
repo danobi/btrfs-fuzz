@@ -39,6 +39,7 @@ def cmd_build(args):
     else:
         if args.buildah:
             tool += " build-using-dockerfile"
+            tool += " --runtime $(which runc)"
         else:
             tool += " build"
 
