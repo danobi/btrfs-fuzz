@@ -1,6 +1,6 @@
 use std::cmp;
 use std::convert::TryInto;
-use std::fs::OpenOptions;
+use std::fs::{create_dir_all, OpenOptions};
 use std::io::{self, Read, Write};
 use std::os::unix::io::AsRawFd;
 use std::path::Path;
@@ -169,7 +169,57 @@ fn work<P: AsRef<Path>>(mounter: &mut Mounter, image: P, debug: bool) {
     if debug {
         match r {
             Ok(_) => (),
-            Err(e) => println!("Mount error: {}", e),
+            Err(e) => {
+                eprintln!("Mount error: {}", e);
+                return;
+            }
+        }
+    }
+
+    let nested_dir_path = "/mnt/btrfs/one/two/three/four/five/six";
+    let ret = create_dir_all(nested_dir_path);
+    if debug {
+        match ret {
+            Ok(_) => (),
+            Err(e) => {
+                eprintln!("Failed to create some directories in work fn: {}", e);
+                return;
+            }
+        }
+    }
+
+    let mut file = match OpenOptions::new()
+        .create(true)
+        .write(true)
+        .open(format!("{}/file", nested_dir_path))
+    {
+        Ok(f) => f,
+        Err(e) => {
+            if debug {
+                eprintln!("Failed to open test file: {}", e);
+            }
+
+            return;
+        }
+    };
+
+    match writeln!(file, "hello world") {
+        Ok(_) => (),
+        Err(e) => {
+            if debug {
+                eprintln!("Failed to write to test file: {}", e);
+                return;
+            }
+        }
+    }
+
+    match file.sync_all() {
+        Ok(()) => (),
+        Err(e) => {
+            if debug {
+                eprintln!("Failed to sync test file: {}", e);
+                return;
+            }
         }
     }
 }
