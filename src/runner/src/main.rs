@@ -192,7 +192,7 @@ fn fork_work_and_wait<P: AsRef<Path>>(
             let res = waitpid(child, None)?;
 
             if kmsg_contains_bug(kmsg)? {
-                return Ok(RunStatus::Success);
+                return Ok(RunStatus::Failure);
             }
 
             match res {
