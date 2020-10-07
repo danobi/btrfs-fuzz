@@ -73,6 +73,7 @@ def cmd_build_tar(args):
     if args.zstd:
         c.append("|")
         c.append("zstd")
+        c.append("-f")
 
     # Both `podman export` and zstd take the `-o OUTPUT` flag
     c.append("-o")
