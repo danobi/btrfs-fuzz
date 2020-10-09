@@ -7,12 +7,13 @@ use fuzzmutator::mutator::MutatorEngine;
 use rmp_serde::{decode::from_read_ref, Serializer};
 use serde::Serialize;
 
-use imgcompress::CompressedBtrfsImage;
+use imgcompress::{CompressedBtrfsImage, decompress};
 
 struct Mutator {
     engine: MutatorEngine,
     /// We'll return pointers to data in this buffer from `afl_custom_fuzz`
     fuzz_buf: Vec<u8>,
+    decompressed_buf: Vec<u8>,
 }
 
 impl Mutator {
@@ -20,6 +21,7 @@ impl Mutator {
         Ok(Self {
             engine: MutatorEngine::new()?,
             fuzz_buf: Vec::new(),
+            decompressed_buf: Vec::new(),
         })
     }
 }
@@ -111,6 +113,40 @@ pub extern "C" fn afl_custom_fuzz(
     unsafe { out_buf.write(mutator.fuzz_buf.as_mut_ptr()) };
 
     mutator.fuzz_buf.len()
+}
+
+#[no_mangle]
+pub extern "C" fn afl_custom_post_process(
+    data: *mut libc::c_void,
+    buf: *mut u8,
+    buf_size: libc::size_t,
+    out_buf: *mut *mut u8,
+) -> libc::size_t {
+    let mutator = unsafe { &mut *(data as *mut Mutator) };
+
+    // Deserialize input
+    let serialized: &[u8] = unsafe { slice::from_raw_parts(buf, buf_size) };
+    let deserialized: CompressedBtrfsImage = match from_read_ref(&serialized) {
+        Ok(d) => d,
+        Err(e) => {
+            eprintln!("Failed to deserialize fuzzer input: {}", e);
+            unsafe { out_buf.write(ptr::null_mut()) };
+            return 0;
+        }
+    };
+
+    mutator.decompressed_buf = match decompress(&deserialized) {
+        Ok(b) => b,
+        Err(e) => {
+            eprintln!("Failed to deserialize fuzzed buffer: {}", e);
+            return 0;
+        }
+    };
+
+    // Yes, it's ok to hand out ref to the Vec we own. The API is designed this way
+    unsafe { out_buf.write(mutator.decompressed_buf.as_mut_ptr()) };
+
+    mutator.decompressed_buf.len()
 }
 
 /// Deinitialize everything
