@@ -43,7 +43,14 @@ def cmd_build(args):
         else:
             tool += " build"
 
-        sh(f"{tool} -t btrfs-fuzz .")
+        build_args = ""
+        if args.kernel_repo:
+            build_args += f"--build-arg KERNEL_REPO={args.kernel_repo} "
+
+        if args.kernel_branch:
+            build_args += f"--build-arg KERNEL_BRANCH={args.kernel_branch} "
+
+        sh(f"{tool} {build_args} -t btrfs-fuzz .")
 
 
 def cmd_build_tar(args):
@@ -246,6 +253,16 @@ def main():
         "--buildah",
         action="store_true",
         help="Use buildah to build image",
+    )
+    build.add_argument(
+        "--kernel-repo",
+        type=str,
+        help="Kernel repo to clone",
+    )
+    build.add_argument(
+        "--kernel-branch",
+        type=str,
+        help="Kernel branch to build from",
     )
     build.set_defaults(func=cmd_build)
 

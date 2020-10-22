@@ -1,5 +1,11 @@
 FROM alpine:edge as kernel
 
+ARG KERNEL_REPO=https://github.com/torvalds/linux.git
+ARG KERNEL_BRANCH=master
+
+ENV KERNEL_REPO=${KERNEL_REPO}
+ENV KERNEL_BRANCH=${KERNEL_BRANCH}
+
 RUN apk update && apk add \
   bash \
   bison \
@@ -19,7 +25,7 @@ RUN apk update && apk add \
 
 WORKDIR /
 
-RUN git clone --depth 1 https://github.com/torvalds/linux.git
+RUN git clone --depth 1 ${KERNEL_REPO} linux --branch ${KERNEL_BRANCH}
 WORKDIR linux
 
 COPY scripts/docker/config_kernel.sh config_kernel.sh
