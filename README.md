@@ -30,6 +30,10 @@ $ ./x.py run
 
 `x.py` is the "Makefile" for this project. See `x.py --help` for full options.
 
+## Trophies
+
+* [Kernel divide-by-zero][6]
+
 
 [0]: https://img.shields.io/docker/cloud/build/dxuu/btrfs-fuzz
 [1]: https://hub.docker.com/r/dxuu/btrfs-fuzz
@@ -37,3 +41,4 @@ $ ./x.py run
 [3]: https://github.com/danobi/btrfs-fuzz/workflows/Rust/badge.svg
 [4]: https://github.com/danobi/btrfs-fuzz/actions?query=workflow%3ARust
 [5]: https://podman.io/
+[6]: https://lore.kernel.org/linux-btrfs/20201020173745.227665-1-dxu@dxuuu.xyz/
