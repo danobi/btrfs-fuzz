@@ -33,6 +33,7 @@ $ ./x.py run
 ## Trophies
 
 * [Kernel divide-by-zero][6]
+* [Kernel stack scribbling][7]
 
 
 [0]: https://img.shields.io/docker/cloud/build/dxuu/btrfs-fuzz
@@ -42,3 +43,4 @@ $ ./x.py run
 [4]: https://github.com/danobi/btrfs-fuzz/actions?query=workflow%3ARust
 [5]: https://podman.io/
 [6]: https://lore.kernel.org/linux-btrfs/20201020173745.227665-1-dxu@dxuuu.xyz/
+[7]: https://lore.kernel.org/linux-btrfs/0e869ff2f4ace0acb4bcfcd9a6fcf95d95b1d85a.1605232441.git.dxu@dxuuu.xyz/
