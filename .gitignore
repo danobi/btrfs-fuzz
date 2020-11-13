@@ -13,3 +13,4 @@ fs/
 
 .#*
 .tags*
+.gdb_history
